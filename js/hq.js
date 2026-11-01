@@ -1,6 +1,11 @@
 import { DESKS, DESK_BY_ID, routeBrief, runPlaybook } from "./desks.js";
 import { loadState, saveState, resetState, newId } from "./store.js";
 import { proposalFromForgeBody } from "./evolution.js";
+import { AGENT_DESK_IDS, deskUsesLiveAgent } from "./agent-desks.js";
+import {
+  buildForgeBriefFromJob,
+  shouldOfferRecursiveCycle,
+} from "./recursive-improve.js";
 
 const STEP_MS = 420;
 const MAURITIUS = "Indian/Mauritius";
@@ -104,11 +109,17 @@ function renderDesks() {
       const active = desk.id === state.selectedDesk ? " is-active" : "";
       const n = desk.id === "all" ? state.jobs.length : tally[desk.id];
       const count = desk.id === "all" ? `${n} files` : n ? `${n} open` : "idle";
+      const recur =
+        desk.id !== "all" && state.agents?.[desk.id]?.recursive !== false
+          ? " · self-improve"
+          : "";
+      const live =
+        desk.id !== "all" && state.agents?.[desk.id]?.mode === "agent" ? " · live" : "";
       return `<button class="desk${active}" type="button" data-desk="${esc(desk.id)}" aria-pressed="${desk.id === state.selectedDesk}">
         <span class="desk-code">${esc(desk.code)}</span>
         <span class="desk-copy">
           <span class="desk-name">${esc(desk.name)}</span>
-          <span class="desk-job">${esc(desk.job)} · ${esc(count)}</span>
+          <span class="desk-job">${esc(desk.job)} · ${esc(count)}${live}${recur}</span>
         </span>
       </button>`;
     })
@@ -116,9 +127,28 @@ function renderDesks() {
 
   els.mission.value = state.company.mission;
   els.orchestratorInput.value = state.company.orchestrator;
-  if (els.scoutMode) {
-    els.scoutMode.value = state.agents?.scout?.mode ?? "playbook";
-  }
+  renderAgentSettings();
+}
+
+function renderAgentSettings() {
+  if (!els.agentSettings) return;
+  els.agentSettings.innerHTML = AGENT_DESK_IDS.map((id) => {
+    const desk = DESK_BY_ID[id];
+    const cfg = state.agents?.[id] ?? { mode: "playbook", recursive: true };
+    return `<fieldset class="agent-desk-config">
+      <legend>${esc(desk?.name ?? id)}</legend>
+      <label>Run mode
+        <select data-agent-mode="${esc(id)}">
+          <option value="playbook" ${cfg.mode !== "agent" ? "selected" : ""}>Playbook</option>
+          <option value="agent" ${cfg.mode === "agent" ? "selected" : ""}>Live agent</option>
+        </select>
+      </label>
+      <label class="agent-recursive">
+        <input type="checkbox" data-agent-recursive="${esc(id)}" ${cfg.recursive !== false ? "checked" : ""}>
+        Recursive self-improvement
+      </label>
+    </fieldset>`;
+  }).join("");
 }
 
 function renderRouteHint() {
@@ -129,8 +159,8 @@ function renderRouteHint() {
     return;
   }
   let hint = `Will file to ${desk.name} — ${desk.job.toLowerCase()}. ${desk.duty}`;
-  if (id === "scout" && state.agents?.scout?.mode === "agent") {
-    hint += " Live Scout agent (needs npm run dev and a Cursor API key).";
+  if (deskUsesLiveAgent(state.agents, id)) {
+    hint += " Live agent (npm run dev + Cursor API key).";
   }
   if (id === "forge") {
     hint += " Files an evolution proposal — accept applies change to desks/agents.";
@@ -196,11 +226,15 @@ function renderFile() {
     .join("");
   const acceptLabel =
     job.kind === "proposal" ? "Accept & apply evolution" : "Accept to record";
+  const recursiveBtn = shouldOfferRecursiveCycle(state.agents, job.deskId, job)
+    ? `<button type="button" class="btn" data-act="recursive">Start self-improvement cycle (Forge)</button>`
+    : "";
   const actions = filed
     ? `<div class="file-actions">
         <button type="button" class="btn btn-primary" data-act="accept">${esc(acceptLabel)}</button>
         <button type="button" class="btn" data-act="return">Return to desk</button>
         <button type="button" class="btn btn-danger" data-act="kill">Kill</button>
+        ${recursiveBtn}
       </div>
       <label class="return-notes">Return notes
         <textarea id="return-notes" rows="3" placeholder="What the desk must fix."></textarea>
@@ -267,10 +301,6 @@ function render() {
   renderLog();
 }
 
-function scoutUsesAgent(deskId) {
-  return deskId === "scout" && state.agents?.scout?.mode === "agent";
-}
-
 function issueBrief(event) {
   event.preventDefault();
   const brief = els.brief.value.trim();
@@ -279,8 +309,8 @@ function issueBrief(event) {
     return;
   }
   const deskId = liveRoute();
-  if (scoutUsesAgent(deskId)) {
-    void issueScoutAgentBrief(brief, deskId);
+  if (deskUsesLiveAgent(state.agents, deskId)) {
+    void issueAgentBrief(brief, deskId);
     els.brief.value = "";
     return;
   }
@@ -311,13 +341,14 @@ function issueBrief(event) {
   runJob(job.id);
 }
 
-async function issueScoutAgentBrief(brief, deskId) {
+async function issueAgentBrief(brief, deskId) {
+  const desk = DESK_BY_ID[deskId];
   const playbook = runPlaybook(deskId, brief, state.company, state.evolution);
   const job = {
     id: newId("job"),
     deskId,
     brief,
-    kind: "work",
+    kind: playbook.kind ?? "work",
     status: "queued",
     title: playbook.title,
     body: "",
@@ -333,48 +364,91 @@ async function issueScoutAgentBrief(brief, deskId) {
   state.jobs.unshift(job);
   state.selectedJobId = job.id;
   state.selectedDesk = "all";
-  log(`Issued to Scout (live agent): ${brief}`);
+  log(`Issued to ${desk?.name ?? deskId} (live agent): ${brief}`);
   persist();
   render();
   runJob(job.id, { agentFetch: true });
   try {
-    const res = await fetch("/api/desk/scout", {
+    const res = await fetch(`/api/desk/${deskId}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ brief, company: state.company, jobId: job.id }),
+      body: JSON.stringify({
+        brief,
+        company: state.company,
+        evolution: state.evolution,
+        jobId: job.id,
+      }),
     });
     const payload = await res.json();
     const current = state.jobs.find((item) => item.id === job.id);
     if (!current || current.runToken !== job.runToken) return;
-    if (!payload.ok) throw new Error(payload.error ?? "scout_failed");
+    if (!payload.ok) throw new Error(payload.error ?? "agent_failed");
     current.title = payload.title ?? current.title;
+    current.kind = payload.kind ?? current.kind;
     current.source = payload.source ?? "agent";
     if (payload.reason) current.agentNote = payload.reason;
     current.steps = (payload.steps ?? current.steps).map((step) => ({ ...step, done: true }));
     current.body = payload.body ?? payload.bodyMarkdown ?? "";
     delete current._file;
     current.status = "filed";
+    if (current.deskId === "forge") {
+      current.kind = "proposal";
+      current.proposal = proposalFromForgeBody(current.body, {
+        id: newId("evo"),
+        sourceJobId: current.id,
+        title: current.title,
+      });
+    }
     current.updatedAt = Date.now();
     log(
-      `${payload.source === "agent" ? "Scout agent" : "Scout playbook"} filed: ${current.title}`,
+      `${payload.source === "agent" ? desk?.name + " agent" : desk?.name + " playbook"} filed: ${current.title}`,
     );
     persist();
     render();
   } catch (error) {
     const current = state.jobs.find((item) => item.id === job.id);
     if (!current) return;
-    const fallback = runPlaybook("scout", brief, state.company, state.evolution);
+    const fallback = runPlaybook(deskId, brief, state.company, state.evolution);
     current.title = fallback.title;
     current.body = fallback.body;
+    current.kind = fallback.kind ?? current.kind;
     current.status = "filed";
     current.source = "playbook";
     current.agentNote = error instanceof Error ? error.message : "agent_error";
     current.steps = fallback.steps.map((step) => ({ ...step, done: true }));
     current.updatedAt = Date.now();
-    log(`Scout fell back to playbook: ${current.title}`);
+    log(`${desk?.name ?? deskId} fell back to playbook: ${current.title}`);
     persist();
     render();
   }
+}
+
+function issueRecursiveForgeBrief(sourceJob) {
+  const brief = buildForgeBriefFromJob(sourceJob, state.company);
+  const playbook = runPlaybook("forge", brief, state.company, state.evolution);
+  const job = {
+    id: newId("job"),
+    deskId: "forge",
+    brief,
+    kind: "proposal",
+    status: "queued",
+    title: playbook.title,
+    parentJobId: sourceJob.id,
+    body: "",
+    steps: playbook.steps.map((step) => ({ ...step, done: false })),
+    notes: "",
+    seed: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    _file: playbook.body,
+    runToken: "",
+  };
+  state.jobs.unshift(job);
+  state.selectedJobId = job.id;
+  log(`Recursive cycle: Forge proposal for ${DESK_BY_ID[sourceJob.deskId]?.name ?? sourceJob.deskId}`);
+  persist();
+  render();
+  runJob(job.id);
 }
 
 function runJob(jobId, options = {}) {
@@ -449,7 +523,7 @@ async function acceptProposal(job) {
     const payload = await res.json();
     if (payload.ok) {
       state.evolution.lastMaterializedAt = Date.now();
-      log("Materialized to Scout agent appendix (.flux/evolution + agents/scout).");
+      log("Materialized evolution appendices for all desk agents (.flux/evolution + agents/*).");
     }
   } catch {
     log("Evolution saved in browser. Run npm run dev to materialize to the Scout agent.");
@@ -473,6 +547,9 @@ function onFileAction(act) {
     job.status = "killed";
     job.updatedAt = Date.now();
     log(`Killed: ${job.title}`);
+  } else if (act === "recursive") {
+    issueRecursiveForgeBrief(job);
+    return;
   } else if (act === "return") {
     const notes = document.getElementById("return-notes")?.value.trim() ?? "";
     job.notes = notes;
@@ -560,11 +637,26 @@ function bind() {
     render();
   });
 
-  els.scoutMode = $("scout-mode");
-  els.scoutMode.addEventListener("change", () => {
-    state.agents.scout.mode = els.scoutMode.value === "agent" ? "agent" : "playbook";
-    persist();
-    renderRouteHint();
+  els.agentSettings = $("agent-settings");
+  els.agentSettings?.addEventListener("change", (event) => {
+    const modeSel = event.target.closest("[data-agent-mode]");
+    if (modeSel) {
+      const id = modeSel.getAttribute("data-agent-mode");
+      if (!state.agents[id]) state.agents[id] = { mode: "playbook", recursive: true };
+      state.agents[id].mode = modeSel.value === "agent" ? "agent" : "playbook";
+      persist();
+      renderRouteHint();
+      renderDesks();
+      return;
+    }
+    const recur = event.target.closest("[data-agent-recursive]");
+    if (recur) {
+      const id = recur.getAttribute("data-agent-recursive");
+      if (!state.agents[id]) state.agents[id] = { mode: "playbook", recursive: true };
+      state.agents[id].recursive = recur.checked;
+      persist();
+      renderDesks();
+    }
   });
 
   $("reset-company").addEventListener("click", () => {

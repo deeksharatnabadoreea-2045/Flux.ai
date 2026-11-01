@@ -40,6 +40,12 @@ test("routeBrief defaults empty input to Maker", () => {
   assert.equal(routeBrief("  "), "maker");
 });
 
+test("work desk files include recursive self-improvement section", () => {
+  const scout = runPlaybook("scout", "Research widgets", { name: "Flux.ai" }, { applied: [] });
+  assert.match(scout.body, /Recursive self-improvement/);
+  assert.match(scout.body, /propose_evolution/);
+});
+
 test("every desk files a titled body with steps", () => {
   const brief = "Price the first year of Flux.ai and write the kill criteria.";
   for (const desk of DESKS) {
