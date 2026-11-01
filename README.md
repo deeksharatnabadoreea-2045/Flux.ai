@@ -21,9 +21,14 @@ The orchestrator does not take a desk’s chair. Judgment stays with you. Repeti
 
 ```bash
 npm test
-npm start
+npm start          # static HQ only (playbook desks)
+npm run dev        # HQ + Scout Agent SDK proxy (live Scout when credentialed)
 ```
 
 Open http://127.0.0.1:4173
 
 The floor stores company state in the browser. Reset founding files from the left rail if you want the original three accepted records back.
+
+## Live Scout agent
+
+Scout lives in [`agents/scout`](agents/scout). On the HQ left rail, set **Scout desk → Live agent**, then issue a research brief while `npm run dev` is running with `CURSOR_API_KEY` set (or after `npx @grok/agent-sdk login`). Other desks still use playbooks until you add agents the same way.

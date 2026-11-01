@@ -17,6 +17,9 @@ export function defaultState() {
   return {
     version: 1,
     company,
+    agents: {
+      scout: { mode: "playbook" },
+    },
     selectedDesk: "all",
     selectedJobId: jobs[2]?.id ?? jobs[0]?.id ?? null,
     jobs,
@@ -42,6 +45,11 @@ export function loadState() {
       ...defaultState(),
       ...parsed,
       company: { ...defaultState().company, ...parsed.company },
+      agents: {
+        ...defaultState().agents,
+        ...parsed.agents,
+        scout: { ...defaultState().agents.scout, ...parsed.agents?.scout },
+      },
     };
   } catch {
     return defaultState();

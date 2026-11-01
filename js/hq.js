@@ -115,14 +115,23 @@ function renderDesks() {
 
   els.mission.value = state.company.mission;
   els.orchestratorInput.value = state.company.orchestrator;
+  if (els.scoutMode) {
+    els.scoutMode.value = state.agents?.scout?.mode ?? "playbook";
+  }
 }
 
 function renderRouteHint() {
   const id = liveRoute();
   const desk = DESK_BY_ID[id];
-  els.routeHint.textContent = desk
-    ? `Will file to ${desk.name} — ${desk.job.toLowerCase()}. ${desk.duty}`
-    : "";
+  if (!desk) {
+    els.routeHint.textContent = "";
+    return;
+  }
+  let hint = `Will file to ${desk.name} — ${desk.job.toLowerCase()}. ${desk.duty}`;
+  if (id === "scout" && state.agents?.scout?.mode === "agent") {
+    hint += " Live Scout agent (needs npm run dev and a Cursor API key).";
+  }
+  els.routeHint.textContent = hint;
 }
 
 function statusLabel(status) {
@@ -249,6 +258,10 @@ function render() {
   renderLog();
 }
 
+function scoutUsesAgent(deskId) {
+  return deskId === "scout" && state.agents?.scout?.mode === "agent";
+}
+
 function issueBrief(event) {
   event.preventDefault();
   const brief = els.brief.value.trim();
@@ -257,6 +270,11 @@ function issueBrief(event) {
     return;
   }
   const deskId = liveRoute();
+  if (scoutUsesAgent(deskId)) {
+    void issueScoutAgentBrief(brief, deskId);
+    els.brief.value = "";
+    return;
+  }
   const playbook = runPlaybook(deskId, brief, state.company);
   const job = {
     id: newId("job"),
@@ -283,7 +301,72 @@ function issueBrief(event) {
   runJob(job.id);
 }
 
-function runJob(jobId) {
+async function issueScoutAgentBrief(brief, deskId) {
+  const playbook = runPlaybook(deskId, brief, state.company);
+  const job = {
+    id: newId("job"),
+    deskId,
+    brief,
+    status: "queued",
+    title: playbook.title,
+    body: "",
+    steps: playbook.steps.map((step) => ({ ...step, done: false })),
+    notes: "",
+    seed: false,
+    source: "agent",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    _file: "",
+    runToken: newId("run"),
+  };
+  state.jobs.unshift(job);
+  state.selectedJobId = job.id;
+  state.selectedDesk = "all";
+  log(`Issued to Scout (live agent): ${brief}`);
+  persist();
+  render();
+  runJob(job.id, { agentFetch: true });
+  try {
+    const res = await fetch("/api/desk/scout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ brief, company: state.company, jobId: job.id }),
+    });
+    const payload = await res.json();
+    const current = state.jobs.find((item) => item.id === job.id);
+    if (!current || current.runToken !== job.runToken) return;
+    if (!payload.ok) throw new Error(payload.error ?? "scout_failed");
+    current.title = payload.title ?? current.title;
+    current.source = payload.source ?? "agent";
+    if (payload.reason) current.agentNote = payload.reason;
+    current.steps = (payload.steps ?? current.steps).map((step) => ({ ...step, done: true }));
+    current.body = payload.body ?? payload.bodyMarkdown ?? "";
+    delete current._file;
+    current.status = "filed";
+    current.updatedAt = Date.now();
+    log(
+      `${payload.source === "agent" ? "Scout agent" : "Scout playbook"} filed: ${current.title}`,
+    );
+    persist();
+    render();
+  } catch (error) {
+    const current = state.jobs.find((item) => item.id === job.id);
+    if (!current) return;
+    const fallback = runPlaybook("scout", brief, state.company);
+    current.title = fallback.title;
+    current.body = fallback.body;
+    current.status = "filed";
+    current.source = "playbook";
+    current.agentNote = error instanceof Error ? error.message : "agent_error";
+    current.steps = fallback.steps.map((step) => ({ ...step, done: true }));
+    current.updatedAt = Date.now();
+    log(`Scout fell back to playbook: ${current.title}`);
+    persist();
+    render();
+  }
+}
+
+function runJob(jobId, options = {}) {
   const job = state.jobs.find((item) => item.id === jobId);
   if (!job) return;
   const token = newId("run");
@@ -304,9 +387,10 @@ function runJob(jobId) {
       i += 1;
       persist();
       render();
-      window.setTimeout(tick, STEP_MS);
+      window.setTimeout(tick, options.agentFetch ? STEP_MS * 2 : STEP_MS);
       return;
     }
+    if (options.agentFetch) return;
     current.status = "filed";
     current.body = current._file || current.body;
     delete current._file;
@@ -409,6 +493,13 @@ function bind() {
     state.company.orchestrator = els.orchestratorInput.value.trim() || "Orchestrator";
     persist();
     render();
+  });
+
+  els.scoutMode = $("scout-mode");
+  els.scoutMode.addEventListener("change", () => {
+    state.agents.scout.mode = els.scoutMode.value === "agent" ? "agent" : "playbook";
+    persist();
+    renderRouteHint();
   });
 
   $("reset-company").addEventListener("click", () => {
