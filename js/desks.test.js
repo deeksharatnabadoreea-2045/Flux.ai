@@ -8,12 +8,16 @@ import {
   runPlaybook,
 } from "./desks.js";
 
-test("six desks exist with codes", () => {
-  assert.equal(DESKS.length, 6);
+test("seven desks exist with codes", () => {
+  assert.equal(DESKS.length, 7);
   assert.deepEqual(
     DESKS.map((desk) => desk.code),
-    ["SCT", "MKR", "VOX", "FLR", "LDG", "WRE"],
+    ["SCT", "MKR", "VOX", "FLR", "LDG", "WRE", "FRG"],
   );
+});
+
+test("routeBrief sends evolution briefs to Forge", () => {
+  assert.equal(routeBrief("Improve Scout architecture for self-improvement"), "forge");
 });
 
 test("routeBrief sends research to Scout", () => {
@@ -39,11 +43,16 @@ test("routeBrief defaults empty input to Maker", () => {
 test("every desk files a titled body with steps", () => {
   const brief = "Price the first year of Flux.ai and write the kill criteria.";
   for (const desk of DESKS) {
-    const file = runPlaybook(desk.id, brief, {
-      name: "Flux.ai",
-      orchestrator: "Deeksharatna",
-      mission: "A company of one.",
-    });
+    const file = runPlaybook(
+      desk.id,
+      brief,
+      {
+        name: "Flux.ai",
+        orchestrator: "Deeksharatna",
+        mission: "A company of one.",
+      },
+      { applied: [] },
+    );
     assert.ok(file.title.includes(desk.name), `${desk.id} title`);
     assert.ok(file.body.includes("Deeksharatna") || file.body.includes("Flux.ai"), `${desk.id} body`);
     assert.ok(file.steps.length >= 4, `${desk.id} steps`);

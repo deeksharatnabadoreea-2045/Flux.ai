@@ -1,5 +1,7 @@
 /** Flux.ai desks — the agent jobs that do the manual work. */
 
+import { evolutionBlockForDesk } from "./evolution.js";
+
 export const DESKS = [
   {
     id: "scout",
@@ -127,6 +129,26 @@ export const DESKS = [
       "investor",
     ],
   },
+  {
+    id: "forge",
+    code: "FRG",
+    name: "Forge",
+    job: "Evolution",
+    duty: "Propose self-improvement and architecture changes. Nothing ships until the orchestrator accepts.",
+    verbs: [
+      "improve",
+      "evolve",
+      "evolution",
+      "architecture",
+      "refactor",
+      "hillclimb",
+      "self-improve",
+      "retool",
+      "redesign",
+      "upgrade",
+      "change how",
+    ],
+  },
 ];
 
 export const DESK_BY_ID = Object.fromEntries(DESKS.map((desk) => [desk.id, desk]));
@@ -221,10 +243,11 @@ export function routeBrief(brief) {
   return best.id;
 }
 
-export function runPlaybook(deskId, brief, company = {}) {
+export function runPlaybook(deskId, brief, company = {}, evolution = {}) {
   const desk = DESK_BY_ID[deskId] ?? DESK_BY_ID.maker;
   const parsed = parseBrief(brief);
-  const ctx = { desk, parsed, company: normalizeCompany(company) };
+  const evolutionBlock = evolutionBlockForDesk(evolution.applied, desk.id);
+  const ctx = { desk, parsed, company: normalizeCompany(company), evolutionBlock };
   switch (desk.id) {
     case "scout":
       return scoutPlaybook(ctx);
@@ -236,6 +259,8 @@ export function runPlaybook(deskId, brief, company = {}) {
       return ledgerPlaybook(ctx);
     case "wire":
       return wirePlaybook(ctx);
+    case "forge":
+      return forgePlaybook(ctx);
     default:
       return makerPlaybook(ctx);
   }
@@ -255,7 +280,12 @@ function stepsFor(desk, labels) {
   return labels.map((label) => ({ desk: desk.name, label, done: false }));
 }
 
-function scoutPlaybook({ desk, parsed, company }) {
+function withEvolution(body, evolutionBlock) {
+  if (!evolutionBlock?.trim()) return body;
+  return `${body}\n\nOrchestrator-approved evolution (honor on this desk)\n${evolutionBlock}`;
+}
+
+function scoutPlaybook({ desk, parsed, company, evolutionBlock }) {
   const q = parsed.isQuestion
     ? parsed.firstSentence.replace(/\?+$/, "") + "?"
     : `What do we need to know before we act on “${clip(parsed.firstSentence, 90)}”?`;
@@ -298,7 +328,7 @@ function scoutPlaybook({ desk, parsed, company }) {
 
   return {
     title: `Scout: ${clip(parsed.firstSentence, 72)}`,
-    body,
+    body: withEvolution(body, evolutionBlock),
     steps: stepsFor(desk, [
       "Restate the question",
       "Tie it to the company mission",
@@ -544,6 +574,95 @@ function wirePlaybook({ desk, parsed, company }) {
       "State the do-not-send rule",
     ]),
   };
+}
+
+function forgePlaybook({ desk, parsed, company, evolutionBlock }) {
+  const topic = clip(parsed.firstSentence.replace(/\.$/, ""), 80);
+  const targetGuess = inferEvolutionTarget(parsed.raw);
+  const body = [
+    `# ${desk.name} proposal — ${topic}`,
+    "",
+    "## Title",
+    `Evolve ${targetGuess}: ${topic}`,
+    "",
+    "## Target desk",
+    targetGuess,
+    "",
+    "## Change kind",
+    inferChangeKind(parsed.raw),
+    "",
+    "## Hypothesis",
+    `If we change how ${targetGuess} handles “${clip(parsed.firstSentence, 100)}”, the orchestrator spends less time rewriting desk output and the company moves forward without hiring.`,
+    "",
+    "## Change",
+    parsed.raw,
+    "",
+    "## Success metric",
+    `- Fewer returns on ${targetGuess} files for the same failure mode.`,
+    `- One measurable hillclimb: same fixture, fewer tool calls or higher accept rate.`,
+    `- Orchestrator review time per filed output drops.`,
+    "",
+    "## Rollback",
+    `Revert this patch from evolution storage and re-run the desk smoke eval. If accept rate drops, kill the change.`,
+    "",
+    "## Patch text",
+    buildDefaultPatch(targetGuess, parsed.raw, company),
+    evolutionBlock
+      ? `\nNote: ${company.name} already has accepted evolution on this desk. Extend, do not contradict, unless the brief says replace.`
+      : "",
+  ].join("\n");
+
+  return {
+    title: `Forge: ${clip(topic, 64)}`,
+    body,
+    kind: "proposal",
+    steps: stepsFor(desk, [
+      "Name the target desk",
+      "State hypothesis and metric",
+      "Write the patch",
+      "Define rollback",
+      "File for orchestrator accept",
+    ]),
+  };
+}
+
+function inferEvolutionTarget(text) {
+  const lower = String(text).toLowerCase();
+  for (const desk of DESKS) {
+    if (desk.id === "forge") continue;
+    if (lower.includes(desk.id) || lower.includes(desk.name.toLowerCase())) return desk.id;
+  }
+  if (/architecture|floor|hq|company/.test(lower)) return "company";
+  if (/scout|research/.test(lower)) return "scout";
+  if (/voice|copy|writing/.test(lower)) return "voice";
+  return "all";
+}
+
+function inferChangeKind(text) {
+  const lower = String(text).toLowerCase();
+  if (/architecture|structure|layout|split|merge/.test(lower)) return "architecture";
+  if (/tool|mcp|api|channel/.test(lower)) return "tool";
+  if (/eval|test|fixture|hillclimb/.test(lower)) return "eval";
+  if (/route|routing|auto-route/.test(lower)) return "routing";
+  if (/playbook|template/.test(lower)) return "playbook";
+  return "instructions";
+}
+
+function buildDefaultPatch(target, brief, company) {
+  return [
+    `Apply to: ${target}`,
+    "",
+    "Instructions delta:",
+    `- When filing work for ${company.name}, treat the following as higher priority than default desk behavior.`,
+    `- Brief context: ${clip(brief, 200)}`,
+    "",
+    "Architecture delta (if any):",
+    `- Document which component moves: playbook, Agent SDK agent, HQ UI, or eval.`,
+    `- One lever per hillclimb round; measure before/after on a pinned fixture.`,
+    "",
+    "Self-improvement rule:",
+    `- Desks may propose changes via Forge or \`propose_evolution\`; orchestrator accept is required before apply.`,
+  ].join("\n");
 }
 
 function promiseFrom(parsed, company) {
