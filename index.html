@@ -3,27 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flux.ai</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #2563eb;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        h1 {
-            color: #ffffff;
-            font-size: 3rem;
-            font-weight: 700;
-            letter-spacing: -0.05em;
-        }
-    </style>
+    <title>Flux.ai — Company floor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./hq.css">
 </head>
 <body>
-    <h1>Flux.ai</h1>
+    <header class="mast">
+        <div>
+            <h1 class="wordmark" id="mast-company">Flux.ai</h1>
+            <p class="tag">You orchestrate. Agents do the jobs.</p>
+        </div>
+        <p class="mast-meta">
+            <span id="mast-clock"></span>
+            <span>Orchestrator · <strong id="mast-orchestrator">Deeksharatna</strong></span>
+        </p>
+    </header>
+
+    <main class="floor">
+        <aside class="rail">
+            <p class="kicker">Desks</p>
+            <div class="desk-list" id="desk-list"></div>
+            <div class="mission-block">
+                <p class="kicker">Company</p>
+                <label>Orchestrator
+                    <input id="orchestrator-name" name="orchestrator" autocomplete="name">
+                </label>
+                <label class="mission-field">Mission
+                    <textarea id="mission" rows="5"></textarea>
+                </label>
+                <button type="button" class="btn btn-quiet" id="reset-company">Reset founding files</button>
+            </div>
+        </aside>
+
+        <section class="work">
+            <form class="brief-form" id="brief-form">
+                <p class="kicker">Brief</p>
+                <label class="sr-only" for="brief">What should the company do next?</label>
+                <textarea id="brief" name="brief" placeholder="What should the company do next?" required></textarea>
+                <div class="brief-row">
+                    <label>
+                        <span class="sr-only">Desk</span>
+                        <select id="desk-select" name="desk"></select>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Issue brief</button>
+                </div>
+                <p class="route-hint" id="route-hint"></p>
+            </form>
+            <p class="kicker floor-kicker">The floor</p>
+            <div class="board" id="board"></div>
+        </section>
+
+        <aside class="file-pane" id="file-pane">
+            <p class="kicker">File</p>
+            <div id="file"></div>
+            <p class="kicker log-kicker">Log</p>
+            <ul class="log" id="log"></ul>
+        </aside>
+    </main>
+    <script type="module" src="./js/hq.js"></script>
 </body>
 </html>
