@@ -336,6 +336,14 @@ select {
   color: var(--danger);
 }
 
+.job.is-proposal .job-code {
+  color: #7c4a03;
+}
+
+.job.is-proposal.is-filed .job-status {
+  color: #7c4a03;
+}
+
 .empty {
   margin: 1.2rem;
   color: var(--ink-soft);

@@ -9,6 +9,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join, extname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runPlaybook } from "../js/desks.js";
+import { materializeEvolution } from "./materialize-evolution.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -179,6 +180,26 @@ async function readStatic(pathname) {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+
+  if (req.method === "POST" && url.pathname === "/api/evolution/materialize") {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    try {
+      const payload = JSON.parse(raw || "{}");
+      const out = await materializeEvolution(payload.applied ?? []);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ...out }));
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "materialize_failed",
+        }),
+      );
+    }
+    return;
+  }
 
   if (req.method === "POST" && url.pathname === "/api/desk/scout") {
     let raw = "";

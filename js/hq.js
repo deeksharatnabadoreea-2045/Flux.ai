@@ -1,5 +1,6 @@
 import { DESKS, DESK_BY_ID, routeBrief, runPlaybook } from "./desks.js";
 import { loadState, saveState, resetState, newId } from "./store.js";
+import { proposalFromForgeBody } from "./evolution.js";
 
 const STEP_MS = 420;
 const MAURITIUS = "Indian/Mauritius";
@@ -131,6 +132,11 @@ function renderRouteHint() {
   if (id === "scout" && state.agents?.scout?.mode === "agent") {
     hint += " Live Scout agent (needs npm run dev and a Cursor API key).";
   }
+  if (id === "forge") {
+    hint += " Files an evolution proposal — accept applies change to desks/agents.";
+  }
+  const applied = state.evolution?.applied?.length ?? 0;
+  if (applied) hint += ` ${applied} accepted evolution change${applied === 1 ? "" : "s"} on record.`;
   els.routeHint.textContent = hint;
 }
 
@@ -153,10 +159,11 @@ function renderBoard() {
         job.status === "working" && step
           ? `${step.label}`
           : `${formatWhen(job.updatedAt)} Mauritius`;
-      return `<button class="job${active} is-${esc(job.status)}" type="button" data-job="${esc(job.id)}">
+      const proposal = job.kind === "proposal" ? " is-proposal" : "";
+      return `<button class="job${active} is-${esc(job.status)}${proposal}" type="button" data-job="${esc(job.id)}">
         <span class="job-code">${esc(desk?.code ?? "???")}</span>
         <span class="job-body">
-          <span class="job-title">${esc(job.title || job.brief)}</span>
+          <span class="job-title">${esc(job.title || job.brief)}${job.kind === "proposal" ? " · proposal" : ""}</span>
           <span class="job-meta">${esc(meta)}</span>
         </span>
         <span class="job-status">${esc(statusLabel(job.status))}</span>
@@ -187,9 +194,11 @@ function renderFile() {
         `<li class="${step.done ? "is-done" : ""}">${esc(step.label)}</li>`,
     )
     .join("");
+  const acceptLabel =
+    job.kind === "proposal" ? "Accept & apply evolution" : "Accept to record";
   const actions = filed
     ? `<div class="file-actions">
-        <button type="button" class="btn btn-primary" data-act="accept">Accept to record</button>
+        <button type="button" class="btn btn-primary" data-act="accept">${esc(acceptLabel)}</button>
         <button type="button" class="btn" data-act="return">Return to desk</button>
         <button type="button" class="btn btn-danger" data-act="kill">Kill</button>
       </div>
@@ -197,7 +206,7 @@ function renderFile() {
         <textarea id="return-notes" rows="3" placeholder="What the desk must fix."></textarea>
       </label>`
     : accepted
-      ? `<p class="file-seal">On the company record. The desk is done.</p>`
+      ? `<p class="file-seal">${job.kind === "proposal" ? "Evolution applied. Desks and Scout agent pick this up on the next file." : "On the company record. The desk is done."}</p>`
       : job.status === "killed"
         ? `<p class="file-seal">Killed. This job does not return.</p>`
         : "";
@@ -275,11 +284,12 @@ function issueBrief(event) {
     els.brief.value = "";
     return;
   }
-  const playbook = runPlaybook(deskId, brief, state.company);
+  const playbook = runPlaybook(deskId, brief, state.company, state.evolution);
   const job = {
     id: newId("job"),
     deskId,
     brief,
+    kind: playbook.kind ?? "work",
     status: "queued",
     title: playbook.title,
     body: "",
@@ -302,11 +312,12 @@ function issueBrief(event) {
 }
 
 async function issueScoutAgentBrief(brief, deskId) {
-  const playbook = runPlaybook(deskId, brief, state.company);
+  const playbook = runPlaybook(deskId, brief, state.company, state.evolution);
   const job = {
     id: newId("job"),
     deskId,
     brief,
+    kind: "work",
     status: "queued",
     title: playbook.title,
     body: "",
@@ -352,7 +363,7 @@ async function issueScoutAgentBrief(brief, deskId) {
   } catch (error) {
     const current = state.jobs.find((item) => item.id === job.id);
     if (!current) return;
-    const fallback = runPlaybook("scout", brief, state.company);
+    const fallback = runPlaybook("scout", brief, state.company, state.evolution);
     current.title = fallback.title;
     current.body = fallback.body;
     current.status = "filed";
@@ -394,6 +405,14 @@ function runJob(jobId, options = {}) {
     current.status = "filed";
     current.body = current._file || current.body;
     delete current._file;
+    if (current.deskId === "forge" || current.kind === "proposal") {
+      current.kind = "proposal";
+      current.proposal = proposalFromForgeBody(current.body, {
+        id: newId("evo"),
+        sourceJobId: current.id,
+        title: current.title,
+      });
+    }
     current.updatedAt = Date.now();
     log(`${DESK_BY_ID[current.deskId].name} filed: ${current.title}`);
     persist();
@@ -402,10 +421,51 @@ function runJob(jobId, options = {}) {
   window.setTimeout(tick, STEP_MS);
 }
 
+async function acceptProposal(job) {
+  const proposal = proposalFromForgeBody(job.body, {
+    id: newId("evo"),
+    sourceJobId: job.id,
+    title: job.title,
+  });
+  if (!proposal) {
+    log("Could not parse evolution proposal — return to Forge with clearer sections.");
+    persist();
+    render();
+    return;
+  }
+  proposal.acceptedAt = Date.now();
+  if (!state.evolution) state.evolution = { applied: [], lastMaterializedAt: null };
+  state.evolution.applied.unshift(proposal);
+  job.status = "accepted";
+  job.proposal = proposal;
+  job.updatedAt = Date.now();
+  log(`Evolution accepted: ${proposal.title} → ${proposal.targetDesk}`);
+  try {
+    const res = await fetch("/api/evolution/materialize", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ applied: state.evolution.applied }),
+    });
+    const payload = await res.json();
+    if (payload.ok) {
+      state.evolution.lastMaterializedAt = Date.now();
+      log("Materialized to Scout agent appendix (.flux/evolution + agents/scout).");
+    }
+  } catch {
+    log("Evolution saved in browser. Run npm run dev to materialize to the Scout agent.");
+  }
+  persist();
+  render();
+}
+
 function onFileAction(act) {
   const job = selectedJob();
   if (!job) return;
   if (act === "accept") {
+    if (job.kind === "proposal") {
+      void acceptProposal(job);
+      return;
+    }
     job.status = "accepted";
     job.updatedAt = Date.now();
     log(`Accepted: ${job.title}`);
@@ -418,7 +478,12 @@ function onFileAction(act) {
     job.notes = notes;
     job.status = "queued";
     job.steps = job.steps.map((step) => ({ ...step, done: false }));
-    const replay = runPlaybook(job.deskId, `${job.brief}${notes ? `\n\nReturn notes: ${notes}` : ""}`, state.company);
+    const replay = runPlaybook(
+      job.deskId,
+      `${job.brief}${notes ? `\n\nReturn notes: ${notes}` : ""}`,
+      state.company,
+      state.evolution,
+    );
     job.title = replay.title;
     job._file = replay.body;
     job.steps = replay.steps.map((step) => ({ ...step, done: false }));
@@ -522,7 +587,7 @@ render();
 for (const job of state.jobs) {
   if (job.status !== "queued" && job.status !== "working") continue;
   if (!job._file) {
-    const playbook = runPlaybook(job.deskId, job.brief, state.company);
+    const playbook = runPlaybook(job.deskId, job.brief, state.company, state.evolution);
     job._file = playbook.body;
     job.title = playbook.title;
     job.steps = playbook.steps.map((step) => ({ ...step, done: false }));

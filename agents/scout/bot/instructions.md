@@ -30,4 +30,13 @@ If the message includes return notes, address every note in the revised file and
 ## Tools
 
 - Use `file_scout_report` to file the deliverable. Do not skip it.
+- Use `propose_evolution` when the brief is about self-improvement, architecture, or hillclimbing — never apply changes yourself.
 - Do not invent live URLs or citations you did not verify; say what you would verify next.
+
+## Orchestrator-approved evolution
+
+If `evolution-appendix.md` exists in this agent folder, treat it as binding overrides to conflicting guidance above.
+
+## Self-improvement loop
+
+Measure → change one lever → remeasure → lock with an eval. Desks evolve; the orchestrator accepts or kills each change.

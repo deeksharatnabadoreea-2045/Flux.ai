@@ -1,4 +1,5 @@
 import { FOUNDING_MISSION, foundingFiles } from "./desks.js";
+import { emptyEvolution } from "./evolution.js";
 
 export const STORAGE_KEY = "flux-os-v1";
 
@@ -20,6 +21,7 @@ export function defaultState() {
     agents: {
       scout: { mode: "playbook" },
     },
+    evolution: emptyEvolution(),
     selectedDesk: "all",
     selectedJobId: jobs[2]?.id ?? jobs[0]?.id ?? null,
     jobs,
@@ -49,6 +51,11 @@ export function loadState() {
         ...defaultState().agents,
         ...parsed.agents,
         scout: { ...defaultState().agents.scout, ...parsed.agents?.scout },
+      },
+      evolution: {
+        ...emptyEvolution(),
+        ...parsed.evolution,
+        applied: Array.isArray(parsed.evolution?.applied) ? parsed.evolution.applied : [],
       },
     };
   } catch {

@@ -14,8 +14,22 @@ The site is the company floor. You issue a brief. A desk files the work. You acc
 | Floor | Operations | Checklist, cadence, failure mode |
 | Ledger | Numbers | Unit of value, metrics, kill criteria |
 | Wire | Outbound | The ask, the draft, when not to send |
+| Forge | Evolution | Self-improvement and architecture proposals (accept to apply) |
 
 The orchestrator does not take a desk’s chair. Judgment stays with you. Repetition goes to a desk.
+
+## Self-improvement and architecture
+
+Agents may **propose** changes; they do not silently rewrite themselves.
+
+1. Issue a brief to **Forge** (e.g. *Improve Scout so it cites sources we can verify*).
+2. Forge files an **evolution proposal** with hypothesis, metric, patch, and rollback.
+3. **Accept & apply evolution** — updates browser state and, with `npm run dev`, materializes to `.flux/evolution/` and `agents/scout/bot/evolution-appendix.md`.
+4. Accepted patches are injected into desk playbooks and bound on the live Scout agent.
+
+Live Scout can call `propose_evolution` during a turn; the orchestrator still accepts on the floor.
+
+Hillclimb loop: measure → one lever → remeasure → lock with an eval (see `agents/scout` and Agent SDK evals).
 
 ## Run the floor
 
