@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Serves the Flux.ai HQ and proxies Scout agent briefs on the same origin.
- * Starts Scout locally when CURSOR_API_KEY (or login) is available.
+ * Flux.ai HQ + multi-agent dev proxy (all desks).
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -10,11 +9,12 @@ import { join, extname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runPlaybook } from "../js/desks.js";
 import { materializeEvolution } from "./materialize-evolution.mjs";
+import { AGENT_DESK_IDS } from "../js/agent-desks.js";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
-const SCOUT_PORT = Number(process.env.FLUX_SCOUT_PORT ?? 3000);
-const SCOUT_BASE = `http://127.0.0.1:${SCOUT_PORT}`;
+const AGENTS_PORT = Number(process.env.FLUX_AGENTS_PORT ?? 3000);
+const AGENTS_BASE = `http://127.0.0.1:${AGENTS_PORT}`;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -25,7 +25,7 @@ const MIME = {
   ".webp": "image/webp",
 };
 
-let scoutChild = null;
+let agentsChild = null;
 
 function hasCursorCredential() {
   return Boolean(
@@ -35,44 +35,44 @@ function hasCursorCredential() {
   );
 }
 
-function startScoutServe() {
-  if (scoutChild) return;
-  scoutChild = spawn(
+function startAgentsServe() {
+  if (agentsChild) return;
+  agentsChild = spawn(
     "npx",
     [
       "--yes",
       "@grok/agent-sdk@0.5.0",
       "serve",
       "--dir",
-      join(ROOT, "agents/scout"),
+      join(ROOT, "agents"),
       "--port",
-      String(SCOUT_PORT),
+      String(AGENTS_PORT),
       "--host",
       "127.0.0.1",
       "--mode",
-      "single",
+      "multi",
       "--dev",
     ],
     { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
   );
-  scoutChild.stderr?.on("data", (chunk) => {
+  agentsChild.stderr?.on("data", (chunk) => {
     const line = String(chunk);
     if (line.includes("listening") || line.includes("error")) {
-      process.stderr.write(`[scout] ${line}`);
+      process.stderr.write(`[agents] ${line}`);
     }
   });
 }
 
-async function waitForScout(maxMs = 30_000) {
+async function waitForAgents(maxMs = 45_000) {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     try {
-      const res = await fetch(`${SCOUT_BASE}/v1/info`);
+      const res = await fetch(`${AGENTS_BASE}/v1/agents`);
       if (res.ok) return true;
     } catch {
       /* retry */
     }
-    await sleep(400);
+    await sleep(500);
   }
   return false;
 }
@@ -81,14 +81,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function pollScoutSession(sessionId, maxMs = 180_000) {
+function fileToolForDesk(deskId) {
+  return `file_${deskId}_report`;
+}
+
+async function pollAgentSession(deskId, sessionId, maxMs = 180_000) {
+  const toolName = fileToolForDesk(deskId);
   const start = Date.now();
   let lastIndex = 0;
   let filed = null;
   let assistantText = "";
+  const base = `${AGENTS_BASE}/${deskId}`;
 
   while (Date.now() - start < maxMs) {
-    const url = `${SCOUT_BASE}/v1/session/${sessionId}/events?format=json&startIndex=${lastIndex}`;
+    const url = `${base}/v1/session/${sessionId}/events?format=json&startIndex=${lastIndex}`;
     const res = await fetch(url);
     if (!res.ok) {
       await sleep(800);
@@ -99,7 +105,7 @@ async function pollScoutSession(sessionId, maxMs = 180_000) {
     for (const event of events) {
       lastIndex = Math.max(lastIndex, (event.index ?? lastIndex) + 1);
       const type = event.type ?? event.kind;
-      if (type === "action.result" && event.data?.toolName === "file_scout_report") {
+      if (type === "action.result" && event.data?.toolName === toolName) {
         const result = event.data.output ?? event.data.result;
         if (result?.title && result?.bodyMarkdown) {
           filed = { title: result.title, body: result.bodyMarkdown };
@@ -112,7 +118,7 @@ async function pollScoutSession(sessionId, maxMs = 180_000) {
         if (filed?.body) return { ...filed, source: "agent" };
         if (assistantText) {
           return {
-            title: `Scout: ${assistantText.split("\n")[0].slice(0, 72)}`,
+            title: `${deskId}: ${assistantText.split("\n")[0].slice(0, 72)}`,
             body: assistantText,
             source: "agent",
           };
@@ -121,22 +127,25 @@ async function pollScoutSession(sessionId, maxMs = 180_000) {
     }
     await sleep(900);
   }
-  throw new Error("Scout agent timed out waiting for a filed report.");
+  throw new Error(`${deskId} agent timed out waiting for a filed report.`);
 }
 
-async function runScoutAgent(brief, company, jobId) {
+async function runDeskAgent(deskId, brief, company, jobId, evolution = {}) {
+  if (!AGENT_DESK_IDS.includes(deskId)) {
+    throw new Error("unknown_desk");
+  }
   if (!hasCursorCredential()) {
-    const playbook = runPlaybook("scout", brief, company);
+    const playbook = runPlaybook(deskId, brief, company, evolution);
     return { ...playbook, source: "playbook", reason: "no_cursor_credential" };
   }
-  startScoutServe();
-  const ready = await waitForScout();
+  startAgentsServe();
+  const ready = await waitForAgents();
   if (!ready) {
-    const playbook = runPlaybook("scout", brief, company);
-    return { ...playbook, source: "playbook", reason: "scout_not_ready" };
+    const playbook = runPlaybook(deskId, brief, company, evolution);
+    return { ...playbook, source: "playbook", reason: "agents_not_ready" };
   }
 
-  const res = await fetch(`${SCOUT_BASE}/v1/channels/floor/brief`, {
+  const res = await fetch(`${AGENTS_BASE}/${deskId}/v1/channels/floor/brief`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -148,15 +157,16 @@ async function runScoutAgent(brief, company, jobId) {
     }),
   });
   if (!res.ok) {
-    const playbook = runPlaybook("scout", brief, company);
+    const playbook = runPlaybook(deskId, brief, company, evolution);
     return { ...playbook, source: "playbook", reason: `channel_${res.status}` };
   }
   const opened = await res.json();
-  const filed = await pollScoutSession(opened.sessionId);
+  const filed = await pollAgentSession(deskId, opened.sessionId);
   return {
     title: filed.title,
     body: filed.body,
-    steps: runPlaybook("scout", brief, company).steps,
+    steps: runPlaybook(deskId, brief, company, evolution).steps,
+    kind: runPlaybook(deskId, brief, company, evolution).kind,
     source: filed.source ?? "agent",
   };
 }
@@ -201,20 +211,23 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/api/desk/scout") {
+  const deskMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)$/);
+  if (req.method === "POST" && deskMatch) {
+    const deskId = deskMatch[1];
     let raw = "";
     for await (const chunk of req) raw += chunk;
     try {
       const payload = JSON.parse(raw);
       const brief = String(payload.brief ?? "").trim();
       const company = payload.company ?? {};
+      const evolution = payload.evolution ?? {};
       const jobId = payload.jobId ?? "";
       if (!brief) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: "brief_required" }));
         return;
       }
-      const result = await runScoutAgent(brief, company, jobId);
+      const result = await runDeskAgent(deskId, brief, company, jobId, evolution);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, ...result }));
     } catch (error) {
@@ -222,7 +235,7 @@ const server = createServer(async (req, res) => {
       res.end(
         JSON.stringify({
           ok: false,
-          error: error instanceof Error ? error.message : "scout_failed",
+          error: error instanceof Error ? error.message : "desk_failed",
         }),
       );
     }
@@ -240,11 +253,12 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(HQ_PORT, "127.0.0.1", () => {
-  console.log(`Flux.ai HQ  http://127.0.0.1:${HQ_PORT}`);
-  console.log(`Scout agent  ${SCOUT_BASE} (starts on first live Scout brief when credentialed)`);
+  console.log(`Flux.ai HQ     http://127.0.0.1:${HQ_PORT}`);
+  console.log(`Agent pool     ${AGENTS_BASE} (multi; starts on first live brief when credentialed)`);
+  console.log(`Desks: ${AGENT_DESK_IDS.join(", ")}`);
 });
 
 process.on("SIGINT", () => {
-  scoutChild?.kill();
+  agentsChild?.kill();
   process.exit(0);
 });

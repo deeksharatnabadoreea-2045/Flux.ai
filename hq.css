@@ -192,6 +192,50 @@ button {
   margin-top: 0.75rem;
 }
 
+.agent-kicker {
+  margin-top: 1rem;
+}
+
+.agent-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.agent-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.agent-desk-config {
+  margin: 0;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.agent-desk-config legend {
+  padding: 0 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.agent-desk-config label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 0.35rem;
+}
+
+.agent-recursive {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.45rem !important;
+}
+
 .floor-kicker {
   padding: 0.85rem 1.1rem 0;
 }

@@ -125,15 +125,31 @@ export function renderAppendixMarkdown(applied) {
   return parts.join("\n");
 }
 
-export function groupAppliedByAgent(applied) {
-  const scout = [];
-  const company = [];
+const LIVE_AGENT_DESKS = [
+  "scout",
+  "maker",
+  "voice",
+  "floor",
+  "ledger",
+  "wire",
+  "forge",
+];
+
+export function groupAppliedByDesk(applied) {
+  const byDesk = Object.fromEntries(LIVE_AGENT_DESKS.map((id) => [id, []]));
   for (const p of applied ?? []) {
-    if (p.targetDesk === "scout") scout.push(p);
-    else if (p.targetDesk === "all" || p.targetDesk === "company") {
-      company.push(p);
-      scout.push(p);
+    const target = p.targetDesk;
+    if (target === "all" || target === "company") {
+      for (const id of LIVE_AGENT_DESKS) byDesk[id].push(p);
+      continue;
     }
+    if (byDesk[target]) byDesk[target].push(p);
   }
-  return { scout, company };
+  return byDesk;
+}
+
+/** @deprecated use groupAppliedByDesk */
+export function groupAppliedByAgent(applied) {
+  const byDesk = groupAppliedByDesk(applied);
+  return { scout: byDesk.scout, company: [] };
 }

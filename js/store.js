@@ -1,5 +1,6 @@
 import { FOUNDING_MISSION, foundingFiles } from "./desks.js";
 import { emptyEvolution } from "./evolution.js";
+import { defaultAgentsConfig } from "./agent-desks.js";
 
 export const STORAGE_KEY = "flux-os-v1";
 
@@ -8,6 +9,7 @@ export function defaultState() {
     name: "Flux.ai",
     mission: FOUNDING_MISSION,
     orchestrator: "Deeksharatna",
+    recursiveSelfImprove: true,
   };
   const now = Date.now();
   const jobs = foundingFiles(company).map((job, index) => ({
@@ -18,9 +20,7 @@ export function defaultState() {
   return {
     version: 1,
     company,
-    agents: {
-      scout: { mode: "playbook" },
-    },
+    agents: defaultAgentsConfig(),
     evolution: emptyEvolution(),
     selectedDesk: "all",
     selectedJobId: jobs[2]?.id ?? jobs[0]?.id ?? null,
@@ -46,11 +46,14 @@ export function loadState() {
     return {
       ...defaultState(),
       ...parsed,
-      company: { ...defaultState().company, ...parsed.company },
+      company: {
+        ...defaultState().company,
+        ...parsed.company,
+        recursiveSelfImprove: parsed.company?.recursiveSelfImprove !== false,
+      },
       agents: {
-        ...defaultState().agents,
+        ...defaultAgentsConfig(),
         ...parsed.agents,
-        scout: { ...defaultState().agents.scout, ...parsed.agents?.scout },
       },
       evolution: {
         ...emptyEvolution(),

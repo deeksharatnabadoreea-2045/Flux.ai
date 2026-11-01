@@ -1,6 +1,7 @@
 /** Flux.ai desks — the agent jobs that do the manual work. */
 
 import { evolutionBlockForDesk } from "./evolution.js";
+import { recursiveImprovementBlock, recursiveStepLabel } from "./recursive-improve.js";
 
 export const DESKS = [
   {
@@ -280,9 +281,21 @@ function stepsFor(desk, labels) {
   return labels.map((label) => ({ desk: desk.name, label, done: false }));
 }
 
-function withEvolution(body, evolutionBlock) {
-  if (!evolutionBlock?.trim()) return body;
-  return `${body}\n\nOrchestrator-approved evolution (honor on this desk)\n${evolutionBlock}`;
+function finalizeDeskBody(body, desk, evolutionBlock) {
+  let out = body;
+  if (desk.id !== "forge") {
+    out = `${out}\n\n${recursiveImprovementBlock(desk)}`;
+  }
+  if (evolutionBlock?.trim()) {
+    out = `${out}\n\nOrchestrator-approved evolution (honor on this desk)\n${evolutionBlock}`;
+  }
+  return out;
+}
+
+function withSteps(desk, labels, includeRecursive = desk.id !== "forge") {
+  const list = [...labels];
+  if (includeRecursive) list.push(recursiveStepLabel());
+  return stepsFor(desk, list);
 }
 
 function scoutPlaybook({ desk, parsed, company, evolutionBlock }) {
@@ -328,8 +341,8 @@ function scoutPlaybook({ desk, parsed, company, evolutionBlock }) {
 
   return {
     title: `Scout: ${clip(parsed.firstSentence, 72)}`,
-    body: withEvolution(body, evolutionBlock),
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "Restate the question",
       "Tie it to the company mission",
       "Map the landscape",
@@ -339,7 +352,7 @@ function scoutPlaybook({ desk, parsed, company, evolutionBlock }) {
   };
 }
 
-function makerPlaybook({ desk, parsed, company }) {
+function makerPlaybook({ desk, parsed, company, evolutionBlock }) {
   const job = parsed.firstSentence.replace(/\.$/, "");
   const body = [
     `# ${desk.name} file — ${clip(job, 64)}`,
@@ -377,8 +390,8 @@ function makerPlaybook({ desk, parsed, company }) {
 
   return {
     title: `Maker: ${clip(job, 72)}`,
-    body,
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "Name the job to be done",
       "Cut non-goals",
       "Write the spec",
@@ -388,7 +401,7 @@ function makerPlaybook({ desk, parsed, company }) {
   };
 }
 
-function voicePlaybook({ desk, parsed, company }) {
+function voicePlaybook({ desk, parsed, company, evolutionBlock }) {
   const promise = promiseFrom(parsed, company);
   const object = parsed.firstSentence.replace(
     /^(write|draft|research|build|specify|make|create|find|price|announce)\s+/i,
@@ -432,8 +445,8 @@ function voicePlaybook({ desk, parsed, company }) {
 
   return {
     title: `Voice: ${clip(object, 72)}`,
-    body,
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "Name the audience",
       "Lock the promise",
       "Draft the homepage block",
@@ -443,7 +456,7 @@ function voicePlaybook({ desk, parsed, company }) {
   };
 }
 
-function floorPlaybook({ desk, parsed, company }) {
+function floorPlaybook({ desk, parsed, company, evolutionBlock }) {
   const outcome = parsed.firstSentence.replace(/\.$/, "");
   const body = [
     `# ${desk.name} file — operations`,
@@ -478,8 +491,8 @@ function floorPlaybook({ desk, parsed, company }) {
 
   return {
     title: `Floor: ${clip(outcome, 72)}`,
-    body,
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "State the outcome",
       "Write the checklist",
       "Set cadence",
@@ -489,7 +502,7 @@ function floorPlaybook({ desk, parsed, company }) {
   };
 }
 
-function ledgerPlaybook({ desk, parsed, company }) {
+function ledgerPlaybook({ desk, parsed, company, evolutionBlock }) {
   const body = [
     `# ${desk.name} file — ${clip(parsed.subject, 48)}`,
     "",
@@ -519,8 +532,8 @@ function ledgerPlaybook({ desk, parsed, company }) {
 
   return {
     title: `Ledger: ${clip(parsed.firstSentence, 72)}`,
-    body,
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "Name the unit of value",
       "Sketch the model",
       "List the metrics",
@@ -529,7 +542,7 @@ function ledgerPlaybook({ desk, parsed, company }) {
   };
 }
 
-function wirePlaybook({ desk, parsed, company }) {
+function wirePlaybook({ desk, parsed, company, evolutionBlock }) {
   const ask = parsed.firstSentence.replace(/\.$/, "");
   const body = [
     `# ${desk.name} file — outbound`,
@@ -565,8 +578,8 @@ function wirePlaybook({ desk, parsed, company }) {
 
   return {
     title: `Wire: ${clip(ask, 72)}`,
-    body,
-    steps: stepsFor(desk, [
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
       "Name who we are asking",
       "Write the ask",
       "Draft the message",

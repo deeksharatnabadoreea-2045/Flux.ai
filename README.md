@@ -43,6 +43,10 @@ Open http://127.0.0.1:4173
 
 The floor stores company state in the browser. Reset founding files from the left rail if you want the original three accepted records back.
 
-## Live Scout agent
+## Live agents and recursive self-improvement
 
-Scout lives in [`agents/scout`](agents/scout). On the HQ left rail, set **Scout desk → Live agent**, then issue a research brief while `npm run dev` is running with `CURSOR_API_KEY` set (or after `npx @grok/agent-sdk login`). Other desks still use playbooks until you add agents the same way.
+Every desk (Scout, Maker, Voice, Floor, Ledger, Wire, Forge) has an Agent SDK project under [`agents/`](agents/). On the HQ left rail, pick **Live agent** per desk, or keep **Playbook** for instant files.
+
+All desks include **recursive self-improvement**: playbooks document the loop; live agents expose `propose_evolution`. After a filed job, use **Start self-improvement cycle (Forge)** to propose a change, then **Accept & apply evolution** to materialize patches to every affected agent (`evolution-appendix.md`).
+
+Run `npm run dev` with `CURSOR_API_KEY` (or `npx @grok/agent-sdk login`) for live agents.
