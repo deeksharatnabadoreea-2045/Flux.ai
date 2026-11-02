@@ -51,3 +51,7 @@ Briefs that mention simulation, in-silico, trials, or validation auto-route towa
 - **North star** = what those files must eventually converge on—validated in-silico trials—not chat or generic “AI.”
 
 Next concrete build steps (when you brief Maker): digital cohort schema, validation harness v0, and a single indication pilot with L1 retrospective replay.
+
+## Linked websites (24/7)
+
+Orchestrator-linked sites are synced on a schedule and analyzed by Scout for in-silico trial leads. See [LINKED-SOURCES.md](./LINKED-SOURCES.md).

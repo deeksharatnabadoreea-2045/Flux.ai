@@ -34,6 +34,20 @@
                 <label class="mission-field">Mission
                     <textarea id="mission" rows="5"></textarea>
                 </label>
+                <p class="kicker">Linked websites (24/7)</p>
+                <p class="agent-note">Scout syncs these on a schedule toward in-silico trial solutions. Requires <code>npm run dev</code> for fetch + hosted egress for deploy.</p>
+                <form id="linked-source-form" class="linked-source-form">
+                    <label>URL
+                        <input id="linked-source-url" name="url" type="url" placeholder="https://clinicaltrials.gov" autocomplete="url">
+                    </label>
+                    <label>Label
+                        <input id="linked-source-label" name="label" placeholder="ClinicalTrials.gov">
+                    </label>
+                    <button type="submit" class="btn btn-quiet">Link site</button>
+                </form>
+                <ul class="linked-source-list" id="linked-source-list"></ul>
+                <p class="linked-source-meta" id="linked-source-meta"></p>
+                <button type="button" class="btn btn-quiet" id="linked-source-sync">Sync now</button>
                 <p class="kicker agent-kicker">24/7 agents</p>
                 <p class="agent-pool-status" id="agent-pool-status" aria-live="polite">Checking agent pool…</p>
                 <p class="agent-note">Desks default to live Agent SDK workers (hosted or local pool). Playbooks are fallback when the pool is offline. Patrol schedules run on deploy; recursive changes still require your accept.</p>

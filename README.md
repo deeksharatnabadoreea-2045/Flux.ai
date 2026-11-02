@@ -55,6 +55,8 @@ Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you w
 
 Run `npm run dev` with `CURSOR_API_KEY` (or `npx @grok/agent-sdk login`) for the local pool. Deploy hosted workers with `node scripts/deploy-all-desks.mjs` (see HOSTING.md).
 
+**Linked websites:** add URLs on the HQ floor; Scout syncs them every 4 hours toward in-silico trial research ([docs/LINKED-SOURCES.md](docs/LINKED-SOURCES.md)).
+
 The floor stores company state in the browser. Reset founding files from the left rail if you want the original three accepted records back.
 
 ## Recursive self-improvement

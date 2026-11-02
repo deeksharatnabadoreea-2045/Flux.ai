@@ -26,6 +26,7 @@ export function defaultState() {
     selectedDesk: "all",
     selectedJobId: jobs[2]?.id ?? jobs[0]?.id ?? null,
     jobs,
+    linkedSources: [],
     log: [
       {
         id: "log_founding",
@@ -62,6 +63,7 @@ export function loadState() {
         ...parsed.evolution,
         applied: Array.isArray(parsed.evolution?.applied) ? parsed.evolution.applied : [],
       },
+      linkedSources: Array.isArray(parsed.linkedSources) ? parsed.linkedSources : [],
     };
   } catch {
     return defaultState();

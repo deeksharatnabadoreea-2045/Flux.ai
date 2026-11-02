@@ -10,6 +10,11 @@ import { fileURLToPath } from "node:url";
 import { runPlaybook } from "../js/desks.js";
 import { materializeEvolution } from "./materialize-evolution.mjs";
 import { AGENT_DESK_IDS } from "../js/agent-desks.js";
+import {
+  readLinkedSourcesConfig,
+  syncLinkedSources,
+  writeLinkedSourcesConfig,
+} from "../js/linked-sources-sync.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -53,7 +58,11 @@ function startAgentsServe() {
       "multi",
       "--dev",
     ],
-    { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
+    {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, FLUX_REPO_ROOT: ROOT },
+    },
   );
   agentsChild.stderr?.on("data", (chunk) => {
     const line = String(chunk);
@@ -211,6 +220,61 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/linked-sources") {
+    const config = await readLinkedSourcesConfig(ROOT);
+    let manifest = null;
+    try {
+      manifest = JSON.parse(
+        await readFile(join(ROOT, ".flux/source-snapshots/manifest.json"), "utf8"),
+      );
+    } catch {
+      /* no sync yet */
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, config, manifest }));
+    return;
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/linked-sources") {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    try {
+      const payload = JSON.parse(raw || "{}");
+      const config = await writeLinkedSourcesConfig(ROOT, {
+        version: 1,
+        sources: payload.sources ?? [],
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, config }));
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "save_failed",
+        }),
+      );
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/linked-sources/sync") {
+    try {
+      const manifest = await syncLinkedSources(ROOT);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, manifest }));
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "sync_failed",
+        }),
+      );
+    }
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/agents/health") {
     const credentialed = hasCursorCredential();
     if (credentialed) startAgentsServe();
@@ -294,10 +358,30 @@ const server = createServer(async (req, res) => {
   res.end(file.body);
 });
 
+const SOURCE_SYNC_MS = Number(process.env.FLUX_SOURCE_SYNC_MS ?? 4 * 60 * 60 * 1000);
+const SOURCE_SYNC_OFF = process.env.FLUX_SOURCE_SYNC === "0";
+
+async function maybeSyncLinkedSources(reason) {
+  const config = await readLinkedSourcesConfig(ROOT);
+  if (!config.sources.length) return;
+  try {
+    const manifest = await syncLinkedSources(ROOT);
+    console.log(
+      `[sources] synced ${manifest.count} link(s) (${reason}) at ${manifest.syncedAt}`,
+    );
+  } catch (error) {
+    console.warn(
+      `[sources] sync failed (${reason}):`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
 server.listen(HQ_PORT, "127.0.0.1", () => {
   console.log(`Flux.ai HQ     http://127.0.0.1:${HQ_PORT}`);
   console.log(`Agent pool     ${AGENTS_BASE} (multi; 24/7 root — patrol schedules on hosted deploy)`);
   console.log(`Health         http://127.0.0.1:${HQ_PORT}/api/agents/health`);
+  console.log(`Linked sources http://127.0.0.1:${HQ_PORT}/api/linked-sources`);
   console.log(`Desks: ${AGENT_DESK_IDS.join(", ")}`);
   if (hasCursorCredential()) {
     startAgentsServe();
@@ -307,6 +391,10 @@ server.listen(HQ_PORT, "127.0.0.1", () => {
     });
   } else {
     console.log("[agents] no Cursor credential — live pool idle; playbooks only");
+  }
+  if (!SOURCE_SYNC_OFF) {
+    setTimeout(() => maybeSyncLinkedSources("startup"), 12_000);
+    setInterval(() => maybeSyncLinkedSources("interval"), SOURCE_SYNC_MS);
   }
 });
 

@@ -10,6 +10,7 @@ import {
   buildForgeBriefFromJob,
   shouldOfferRecursiveCycle,
 } from "./recursive-improve.js";
+import { validateSourceInput } from "./linked-sources.js";
 
 const STEP_MS = 420;
 const MAURITIUS = "Indian/Mauritius";
@@ -133,9 +134,90 @@ function renderDesks() {
   els.orchestratorInput.value = state.company.orchestrator;
   renderAgentSettings();
   renderAgentPoolStatus();
+  renderLinkedSources();
 }
 
 let agentPoolHealth = null;
+let linkedSourceManifest = null;
+
+async function persistLinkedSourcesToServer() {
+  try {
+    const res = await fetch("/api/linked-sources", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sources: state.linkedSources }),
+    });
+    if (!res.ok) return false;
+    const payload = await res.json();
+    if (payload.config?.sources) state.linkedSources = payload.config.sources;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function pullLinkedSourcesFromServer() {
+  try {
+    const res = await fetch("/api/linked-sources");
+    if (!res.ok) return;
+    const payload = await res.json();
+    if (Array.isArray(payload.config?.sources) && payload.config.sources.length) {
+      state.linkedSources = payload.config.sources;
+      persist();
+    }
+    linkedSourceManifest = payload.manifest ?? null;
+  } catch {
+    /* static HQ */
+  }
+}
+
+async function syncLinkedSourcesNow() {
+  const saved = await persistLinkedSourcesToServer();
+  if (!saved) {
+    log("Link sites while running npm run dev to enable 24/7 fetch.");
+    return;
+  }
+  try {
+    const res = await fetch("/api/linked-sources/sync", { method: "POST" });
+    const payload = await res.json();
+    if (payload.ok) {
+      linkedSourceManifest = payload.manifest;
+      log(`Synced ${payload.manifest?.count ?? 0} linked site(s) for Scout.`);
+    } else {
+      log(`Source sync failed: ${payload.error ?? "unknown"}`);
+    }
+  } catch {
+    log("Source sync failed — is npm run dev running?");
+  }
+  renderLinkedSources();
+}
+
+function renderLinkedSources() {
+  const list = document.getElementById("linked-source-list");
+  const meta = document.getElementById("linked-source-meta");
+  if (!list) return;
+  const sources = state.linkedSources ?? [];
+  if (!sources.length) {
+    list.innerHTML = `<li class="muted">No sites linked yet.</li>`;
+  } else {
+    list.innerHTML = sources
+      .map(
+        (s) => `<li>
+          <span><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label ?? s.url)}</a></span>
+          <button type="button" class="btn btn-quiet" data-unlink="${esc(s.id)}">Remove</button>
+        </li>`,
+      )
+      .join("");
+  }
+  if (meta) {
+    const synced = linkedSourceManifest?.syncedAt;
+    meta.textContent = synced
+      ? `Last sync (Mauritius): ${formatWhen(new Date(synced).getTime())} · ${linkedSourceManifest.count ?? sources.length} source(s)`
+      : sources.length
+        ? "Not synced yet — use Sync now (requires npm run dev)."
+        : "";
+  }
+}
 
 async function fetchAgentPoolHealth() {
   try {
@@ -676,6 +758,43 @@ function bind() {
     render();
   });
 
+  const linkedForm = document.getElementById("linked-source-form");
+  linkedForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const urlInput = document.getElementById("linked-source-url");
+    const labelInput = document.getElementById("linked-source-label");
+    const check = validateSourceInput({
+      url: urlInput?.value,
+      label: labelInput?.value,
+    });
+    if (!check.ok) {
+      log("Could not link site — check the URL.");
+      return;
+    }
+    state.linkedSources = [...(state.linkedSources ?? []), check.source];
+    persist();
+    await persistLinkedSourcesToServer();
+    urlInput.value = "";
+    labelInput.value = "";
+    log(`Linked ${check.source.label} for 24/7 Scout watch.`);
+    renderLinkedSources();
+  });
+
+  document.getElementById("linked-source-list")?.addEventListener("click", async (event) => {
+    const btn = event.target.closest("[data-unlink]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-unlink");
+    state.linkedSources = (state.linkedSources ?? []).filter((s) => s.id !== id);
+    persist();
+    await persistLinkedSourcesToServer();
+    log("Removed linked site.");
+    renderLinkedSources();
+  });
+
+  document.getElementById("linked-source-sync")?.addEventListener("click", () => {
+    syncLinkedSourcesNow();
+  });
+
   els.agentSettings = $("agent-settings");
   els.agentSettings?.addEventListener("change", (event) => {
     const modeSel = event.target.closest("[data-agent-mode]");
@@ -718,6 +837,7 @@ fetchAgentPoolHealth().then((health) => {
   agentPoolHealth = health;
   renderAgentPoolStatus();
 });
+pullLinkedSourcesFromServer().then(() => renderLinkedSources());
 
 for (const job of state.jobs) {
   if (job.status !== "queued" && job.status !== "working") continue;
