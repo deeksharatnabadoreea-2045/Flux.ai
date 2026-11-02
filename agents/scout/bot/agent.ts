@@ -6,8 +6,8 @@ export default defineAgent({
     cwd: fluxRepoRoot(),
   },
   hosting: {
-    /** Add each linked hostname before deploy — see docs/LINKED-SOURCES.md */
-    egressDomains: [],
+    /** Linked sources — see config/linked-sources.json and docs/LINKED-SOURCES.md */
+    egressDomains: ["clinicaltrials.gov"],
   },
   model: {
     id: "grok-4.7",

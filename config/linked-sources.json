@@ -1,4 +1,12 @@
 {
   "version": 1,
-  "sources": []
+  "sources": [
+    {
+      "id": "src_clinicaltrials_gov_mhhz8k2a",
+      "url": "https://clinicaltrials.gov/",
+      "label": "ClinicalTrials.gov",
+      "tags": ["insilico", "trials", "registry"],
+      "addedAt": 1762042560000
+    }
+  ]
 }
