@@ -10,6 +10,7 @@ export function defaultState() {
     mission: FOUNDING_MISSION,
     orchestrator: "Deeksharatna",
     recursiveSelfImprove: true,
+    runtimeRoot: "agents24x7",
   };
   const now = Date.now();
   const jobs = foundingFiles(company).map((job, index) => ({
@@ -50,6 +51,7 @@ export function loadState() {
         ...defaultState().company,
         ...parsed.company,
         recursiveSelfImprove: parsed.company?.recursiveSelfImprove !== false,
+        runtimeRoot: parsed.company?.runtimeRoot ?? "agents24x7",
       },
       agents: {
         ...defaultAgentsConfig(),

@@ -211,6 +211,48 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/agents/health") {
+    const credentialed = hasCursorCredential();
+    if (credentialed) startAgentsServe();
+    const ready = credentialed ? await waitForAgents(credentialed ? 8_000 : 0) : false;
+    let agents = [];
+    if (ready) {
+      try {
+        const res = await fetch(`${AGENTS_BASE}/v1/agents`);
+        if (res.ok) {
+          const payload = await res.json();
+          agents = payload.agents ?? payload ?? [];
+        }
+      } catch {
+        /* pool not up */
+      }
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        runtimeRoot: "agents24x7",
+        credentialed,
+        poolReady: ready,
+        agentsBase: AGENTS_BASE,
+        desks: AGENT_DESK_IDS,
+        agents: Array.isArray(agents)
+          ? agents.map((a) => ({
+              id: a.id ?? a.slug ?? a.name,
+              schedules: a.schedules ?? undefined,
+            }))
+          : [],
+        patrolSchedule: "patrol",
+        note: credentialed
+          ? ready
+            ? "Agent pool is up. Hosted deploy runs patrol schedules 24/7."
+            : "Agent pool starting or unavailable."
+          : "Set CURSOR_API_KEY or service account for live agents; HQ uses playbooks as fallback.",
+      }),
+    );
+    return;
+  }
+
   const deskMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)$/);
   if (req.method === "POST" && deskMatch) {
     const deskId = deskMatch[1];
@@ -254,8 +296,18 @@ const server = createServer(async (req, res) => {
 
 server.listen(HQ_PORT, "127.0.0.1", () => {
   console.log(`Flux.ai HQ     http://127.0.0.1:${HQ_PORT}`);
-  console.log(`Agent pool     ${AGENTS_BASE} (multi; starts on first live brief when credentialed)`);
+  console.log(`Agent pool     ${AGENTS_BASE} (multi; 24/7 root — patrol schedules on hosted deploy)`);
+  console.log(`Health         http://127.0.0.1:${HQ_PORT}/api/agents/health`);
   console.log(`Desks: ${AGENT_DESK_IDS.join(", ")}`);
+  if (hasCursorCredential()) {
+    startAgentsServe();
+    waitForAgents().then((ready) => {
+      if (ready) console.log("[agents] pool ready");
+      else console.warn("[agents] pool not ready — briefs may fall back to playbooks");
+    });
+  } else {
+    console.log("[agents] no Cursor credential — live pool idle; playbooks only");
+  }
 });
 
 process.on("SIGINT", () => {

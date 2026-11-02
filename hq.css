@@ -196,6 +196,30 @@ button {
   margin-top: 1rem;
 }
 
+.agent-pool-status {
+  margin: 0 0 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper-2);
+}
+
+.agent-pool-status[data-state="ready"] {
+  border-color: var(--filed);
+  color: var(--filed);
+}
+
+.agent-pool-status[data-state="offline"] {
+  color: var(--ink-soft);
+}
+
+.agent-pool-status[data-state="warn"] {
+  border-color: var(--working);
+  color: var(--blue-ink);
+}
+
 .agent-note {
   margin: 0 0 0.5rem;
   font-size: 0.78rem;

@@ -1,7 +1,11 @@
 import { DESKS, DESK_BY_ID, routeBrief, runPlaybook } from "./desks.js";
 import { loadState, saveState, resetState, newId } from "./store.js";
 import { proposalFromForgeBody } from "./evolution.js";
-import { AGENT_DESK_IDS, deskUsesLiveAgent } from "./agent-desks.js";
+import {
+  AGENT_DESK_IDS,
+  defaultAgentDeskConfig,
+  deskUsesLiveAgent,
+} from "./agent-desks.js";
 import {
   buildForgeBriefFromJob,
   shouldOfferRecursiveCycle,
@@ -128,13 +132,46 @@ function renderDesks() {
   els.mission.value = state.company.mission;
   els.orchestratorInput.value = state.company.orchestrator;
   renderAgentSettings();
+  renderAgentPoolStatus();
+}
+
+let agentPoolHealth = null;
+
+async function fetchAgentPoolHealth() {
+  try {
+    const res = await fetch("/api/agents/health");
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function renderAgentPoolStatus() {
+  const node = document.getElementById("agent-pool-status");
+  if (!node) return;
+  const h = agentPoolHealth;
+  if (!h) {
+    node.dataset.state = "offline";
+    node.textContent =
+      "Static HQ — run npm run dev for the 24/7 agent pool and patrol schedules locally.";
+    return;
+  }
+  if (h.poolReady) {
+    node.dataset.state = "ready";
+    const n = Array.isArray(h.agents) ? h.agents.length : h.desks?.length ?? 0;
+    node.textContent = `Agent pool ready (${n} workers). Patrol schedule: ${h.patrolSchedule ?? "patrol"} on hosted deploy.`;
+    return;
+  }
+  node.dataset.state = h.credentialed ? "warn" : "offline";
+  node.textContent = h.note ?? "Agent pool not ready.";
 }
 
 function renderAgentSettings() {
   if (!els.agentSettings) return;
   els.agentSettings.innerHTML = AGENT_DESK_IDS.map((id) => {
     const desk = DESK_BY_ID[id];
-    const cfg = state.agents?.[id] ?? { mode: "playbook", recursive: true };
+    const cfg = state.agents?.[id] ?? defaultAgentDeskConfig();
     return `<fieldset class="agent-desk-config">
       <legend>${esc(desk?.name ?? id)}</legend>
       <label>Run mode
@@ -160,7 +197,9 @@ function renderRouteHint() {
   }
   let hint = `Will file to ${desk.name} — ${desk.job.toLowerCase()}. ${desk.duty}`;
   if (deskUsesLiveAgent(state.agents, id)) {
-    hint += " Live agent (npm run dev + Cursor API key).";
+    hint += " Live 24/7 agent (hosted deploy or npm run dev + Cursor credential).";
+  } else {
+    hint += " Playbook fallback (desk set to offline mode).";
   }
   if (id === "forge") {
     hint += " Files an evolution proposal — accept applies change to desks/agents.";
@@ -642,7 +681,7 @@ function bind() {
     const modeSel = event.target.closest("[data-agent-mode]");
     if (modeSel) {
       const id = modeSel.getAttribute("data-agent-mode");
-      if (!state.agents[id]) state.agents[id] = { mode: "playbook", recursive: true };
+      if (!state.agents[id]) state.agents[id] = defaultAgentDeskConfig();
       state.agents[id].mode = modeSel.value === "agent" ? "agent" : "playbook";
       persist();
       renderRouteHint();
@@ -652,7 +691,7 @@ function bind() {
     const recur = event.target.closest("[data-agent-recursive]");
     if (recur) {
       const id = recur.getAttribute("data-agent-recursive");
-      if (!state.agents[id]) state.agents[id] = { mode: "playbook", recursive: true };
+      if (!state.agents[id]) state.agents[id] = defaultAgentDeskConfig();
       state.agents[id].recursive = recur.checked;
       persist();
       renderDesks();
@@ -675,6 +714,10 @@ function bind() {
 
 bind();
 render();
+fetchAgentPoolHealth().then((health) => {
+  agentPoolHealth = health;
+  renderAgentPoolStatus();
+});
 
 for (const job of state.jobs) {
   if (job.status !== "queued" && job.status !== "working") continue;

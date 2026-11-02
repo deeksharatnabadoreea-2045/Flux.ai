@@ -1,8 +1,8 @@
 # Flux.ai
 
-A company of one. You orchestrate. Agents do the jobs.
+**24/7 agents** are the runtime root. You orchestrate from the company floor; desk workers stay on duty (hosted or local pool), file work, and propose evolution — they never self-apply.
 
-The site is the company floor. You issue a brief. A desk files the work. You accept it, return it, or kill it.
+The site is the orchestrator console. You issue a brief. A desk files the work. You accept it, return it, or kill it.
 
 ## Desks
 
@@ -18,35 +18,43 @@ The site is the company floor. You issue a brief. A desk files the work. You acc
 
 The orchestrator does not take a desk’s chair. Judgment stays with you. Repetition goes to a desk.
 
+## 24/7 runtime
+
+| Layer | Role |
+| --- | --- |
+| **Hosted agents** | Production: deploy each desk from [`agents/`](agents/) — patrol schedules fire on Cursor hosting. See [`agents/HOSTING.md`](agents/HOSTING.md). |
+| **`npm run dev`** | Local HQ + multi-agent pool on `:3000`, health at `/api/agents/health`. |
+| **Playbooks** | Fallback when the pool is offline or a desk is set to offline mode on the floor. |
+
+Every desk ships a **`patrol`** schedule (staggered every 6 hours UTC). Patrol turns default to quiet `PATROL_OK` unless memory shows open work.
+
 ## Self-improvement and architecture
 
 Agents may **propose** changes; they do not silently rewrite themselves.
 
 1. Issue a brief to **Forge** (e.g. *Improve Scout so it cites sources we can verify*).
 2. Forge files an **evolution proposal** with hypothesis, metric, patch, and rollback.
-3. **Accept & apply evolution** — updates browser state and, with `npm run dev`, materializes to `.flux/evolution/` and `agents/scout/bot/evolution-appendix.md`.
-4. Accepted patches are injected into desk playbooks and bound on the live Scout agent.
+3. **Accept & apply evolution** — updates browser state and, with `npm run dev`, materializes to `.flux/evolution/` and per-desk `evolution-appendix.md`.
+4. Accepted patches bind on live agents and playbooks.
 
-Live Scout can call `propose_evolution` during a turn; the orchestrator still accepts on the floor.
-
-Hillclimb loop: measure → one lever → remeasure → lock with an eval (see `agents/scout` and Agent SDK evals).
+Hillclimb loop: measure → one lever → remeasure → lock with an eval (see `agents/*` and Agent SDK evals).
 
 ## Run the floor
 
 ```bash
 npm test
-npm start          # static HQ only (playbook desks)
-npm run dev        # HQ + Scout Agent SDK proxy (live Scout when credentialed)
+npm run dev        # HQ + 24/7 agent pool (recommended)
+npm start          # static HQ only — no live pool
 ```
 
 Open http://127.0.0.1:4173
 
+Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
+
+Run `npm run dev` with `CURSOR_API_KEY` (or `npx @grok/agent-sdk login`) for the local pool. Deploy hosted workers with `node scripts/deploy-all-desks.mjs` (see HOSTING.md).
+
 The floor stores company state in the browser. Reset founding files from the left rail if you want the original three accepted records back.
 
-## Live agents and recursive self-improvement
+## Recursive self-improvement
 
-Every desk (Scout, Maker, Voice, Floor, Ledger, Wire, Forge) has an Agent SDK project under [`agents/`](agents/). On the HQ left rail, pick **Live agent** per desk, or keep **Playbook** for instant files.
-
-All desks include **recursive self-improvement**: playbooks document the loop; live agents expose `propose_evolution`. After a filed job, use **Start self-improvement cycle (Forge)** to propose a change, then **Accept & apply evolution** to materialize patches to every affected agent (`evolution-appendix.md`).
-
-Run `npm run dev` with `CURSOR_API_KEY` (or `npx @grok/agent-sdk login`) for live agents.
+All desks include **recursive self-improvement**: live agents expose `propose_evolution`. After a filed job, use **Start self-improvement cycle (Forge)** to propose a change, then **Accept & apply evolution** to materialize patches for every affected agent.

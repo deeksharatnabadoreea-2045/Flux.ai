@@ -37,6 +37,10 @@ If the message includes return notes, address every note in the revised file and
 
 If `evolution-appendix.md` exists in this agent folder, treat it as binding overrides to conflicting guidance above.
 
+## 24/7 patrol
+
+You run on Cursor hosting with a `patrol` schedule. On patrol turns, follow the schedule body: reply `PATROL_OK` unless shared memory shows real open Scout work.
+
 ## Self-improvement loop
 
 Measure → change one lever → remeasure → lock with an eval. Desks evolve; the orchestrator accepts or kills each change.

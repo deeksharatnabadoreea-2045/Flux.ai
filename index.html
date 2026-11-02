@@ -14,7 +14,7 @@
     <header class="mast">
         <div>
             <h1 class="wordmark" id="mast-company">Flux.ai</h1>
-            <p class="tag">You orchestrate. Agents do the jobs.</p>
+            <p class="tag">24/7 agents on the floor. You orchestrate.</p>
         </div>
         <p class="mast-meta">
             <span id="mast-clock"></span>
@@ -34,8 +34,9 @@
                 <label class="mission-field">Mission
                     <textarea id="mission" rows="5"></textarea>
                 </label>
-                <p class="kicker agent-kicker">Agents</p>
-                <p class="agent-note">Every desk can run a playbook or a live Agent SDK worker, and propose recursive self-improvement via Forge.</p>
+                <p class="kicker agent-kicker">24/7 agents</p>
+                <p class="agent-pool-status" id="agent-pool-status" aria-live="polite">Checking agent pool…</p>
+                <p class="agent-note">Desks default to live Agent SDK workers (hosted or local pool). Playbooks are fallback when the pool is offline. Patrol schedules run on deploy; recursive changes still require your accept.</p>
                 <div id="agent-settings" class="agent-settings"></div>
                 <button type="button" class="btn btn-quiet" id="reset-company">Reset founding files</button>
             </div>
