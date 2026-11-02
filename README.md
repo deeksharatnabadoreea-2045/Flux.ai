@@ -1,6 +1,8 @@
 # Flux.ai
 
-**North star:** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—predict trial outcomes in software with validation strong enough to reduce or replace physical enrollment where regulators and data allow. Near–100% endpoint concordance is the long-term bar; it is earned with held-out evidence, not asserted in marketing.
+**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Monetize:** paid agent access now; heavy bio simulation later.
+
+**Engine (long-term):** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—built under the co-pilot as proof and tiers improve.
 
 **24/7 agents** are the runtime root. You orchestrate from the company floor; desk workers stay on duty (hosted or local pool), file work, and propose evolution — they never self-apply.
 
