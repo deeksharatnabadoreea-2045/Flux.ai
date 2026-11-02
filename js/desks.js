@@ -3,6 +3,8 @@
 import { evolutionBlockForDesk } from "./evolution.js";
 import { recursiveImprovementBlock, recursiveStepLabel } from "./recursive-improve.js";
 
+export { FOUNDING_MISSION } from "./platform.js";
+
 export const DESKS = [
   {
     id: "scout",
@@ -23,6 +25,11 @@ export const DESKS = [
       "who is",
       "what is",
       "survey",
+      "clinical",
+      "mechanism",
+      "biomarker",
+      "pharmacology",
+      "pubmed",
     ],
   },
   {
@@ -44,6 +51,14 @@ export const DESKS = [
       "floor",
       "prototype",
       "make",
+      "simulate",
+      "simulation",
+      "in-silico",
+      "insilico",
+      "digital twin",
+      "virtual trial",
+      "synthetic cohort",
+      "pipeline",
     ],
   },
   {
@@ -107,6 +122,14 @@ export const DESKS = [
       "budget",
       "model",
       "kpi",
+      "trial",
+      "endpoint",
+      "efficacy",
+      "accuracy",
+      "validation",
+      "calibration",
+      "concordance",
+      "benchmark",
     ],
   },
   {
@@ -694,9 +717,6 @@ function clip(text, n) {
   if (clean.length <= n) return clean;
   return clean.slice(0, Math.max(0, n - 1)).trimEnd() + "…";
 }
-
-export const FOUNDING_MISSION =
-  "A company of one. The founder orchestrates. Agents do the manual jobs.";
 
 export function foundingFiles(company) {
   const ctx = { company: normalizeCompany(company) };
