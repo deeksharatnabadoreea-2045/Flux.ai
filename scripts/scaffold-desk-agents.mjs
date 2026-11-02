@@ -166,4 +166,9 @@ for (const desk of AGENTS) {
   await scaffoldDesk(desk, shared);
 }
 
+const { spawnSync } = await import("node:child_process");
+spawnSync(process.execPath, ["scripts/sync-desk-heartbeats.mjs"], {
+  cwd: ROOT,
+  stdio: "inherit",
+});
 console.log("done");

@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test js/desks.test.js js/evolution.test.js",
+    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js",
+    "agents:validate": "node scripts/deploy-all-desks.mjs",
+    "agents:heartbeats": "node scripts/sync-desk-heartbeats.mjs",
     "evolution:materialize": "node scripts/materialize-evolution.mjs",
     "start": "python3 -m http.server 4173 --bind 127.0.0.1",
     "dev": "node scripts/company-dev.mjs",

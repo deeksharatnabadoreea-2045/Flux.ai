@@ -1,10 +1,13 @@
-# Flux.ai desk agents
+# Flux.ai desk agents (24/7 root)
+
+Flux runs on **always-on** Agent SDK workers. HQ is the orchestrator UI; these folders are the production runtime. See [HOSTING.md](./HOSTING.md) for deploy and patrol schedules.
 
 Each desk has an **Agent SDK** project with:
 
 - `file_<desk>_report` — file work for orchestrator review
 - `propose_evolution` — recursive self-improvement proposal (orchestrator accept required)
 - `self-improve` skill — hillclimb workflow
+- `bot/schedules/patrol.md` — 24/7 patrol (hosted cron; manual under `serve --dev`)
 - `evolution-appendix.md` — generated when you accept evolution on the floor (`npm run dev`)
 
 | Desk | Folder | Port (multi serve) |
