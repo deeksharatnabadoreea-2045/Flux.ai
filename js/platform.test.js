@@ -1,9 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FOUNDING_MISSION, NORTH_STAR, VALIDATION_LADDER } from "./platform.js";
+import { FOUNDING_MISSION, NORTH_STAR, PRODUCT, VALIDATION_LADDER } from "./platform.js";
 import { routeBrief } from "./desks.js";
 
-test("founding mission states in-silico trial north star", () => {
+test("product is scientist co-pilot chatbot", () => {
+  assert.match(PRODUCT.name, /co-pilot/i);
+  assert.match(PRODUCT.surface, /chatbot/i);
+});
+
+test("founding mission ties co-pilot to in-silico engine", () => {
+  assert.match(FOUNDING_MISSION, /co-pilot/i);
   assert.match(FOUNDING_MISSION, /in-silico human trials/i);
   assert.match(NORTH_STAR.target, /predict/i);
 });

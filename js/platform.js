@@ -1,4 +1,12 @@
-/** Long-term product north star — shared by HQ, playbooks, and agent briefs. */
+/** What we ship now vs the long-term engine — shared by HQ, playbooks, and agent briefs. */
+
+/** Product today: chat surface; desks + 24/7 agents do the lab work behind it. */
+export const PRODUCT = {
+  name: "Scientist co-pilot",
+  surface: "Chatbot — scientists ask; agents file research, plans, and metrics.",
+  monetization: "Paid agent access (per seat, per job, or monthly brief bundle).",
+  notYet: "Heavy in-silico simulation compute—that is the engine we build underneath.",
+};
 
 export const NORTH_STAR = {
   headline: "In-silico human trials",
@@ -40,4 +48,4 @@ export const DESK_ROLES_IN_TRIAL_STACK = {
   forge: "Evolution of models and architecture—always orchestrator-accept before apply.",
 };
 
-export const FOUNDING_MISSION = `${NORTH_STAR.headline}. ${NORTH_STAR.target} ${NORTH_STAR.orchestratorRole}`;
+export const FOUNDING_MISSION = `${PRODUCT.name}: ${PRODUCT.surface} Long-term: ${NORTH_STAR.headline}. ${NORTH_STAR.orchestratorRole}`;
