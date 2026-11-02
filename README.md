@@ -1,5 +1,7 @@
 # Flux.ai
 
+**North star:** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—predict trial outcomes in software with validation strong enough to reduce or replace physical enrollment where regulators and data allow. Near–100% endpoint concordance is the long-term bar; it is earned with held-out evidence, not asserted in marketing.
+
 **24/7 agents** are the runtime root. You orchestrate from the company floor; desk workers stay on duty (hosted or local pool), file work, and propose evolution — they never self-apply.
 
 The site is the orchestrator console. You issue a brief. A desk files the work. You accept it, return it, or kill it.
