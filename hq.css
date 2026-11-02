@@ -196,6 +196,54 @@ button {
   margin-top: 1rem;
 }
 
+.linked-source-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.linked-source-form label {
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.linked-source-form input {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.linked-source-list {
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.linked-source-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.linked-source-list a {
+  color: var(--blue-ink);
+  word-break: break-all;
+}
+
+.linked-source-meta {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
 .agent-pool-status {
   margin: 0 0 0.35rem;
   padding: 0.35rem 0.5rem;
