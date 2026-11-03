@@ -27,3 +27,7 @@ Paid **agent** access—not simulation supercomputers yet:
 | **HQ floor** (internal / power users) | Orchestrator console, linked sources, evolution accept |
 
 Ship the chat first; HQ remains the ops backbone.
+
+## How the co-pilot grows
+
+See [COPILOT-ROADMAP.md](./COPILOT-ROADMAP.md)—your engine milestones unlock chat + desk features.
