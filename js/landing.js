@@ -1,3 +1,5 @@
+const UPGRADE_DISMISS_KEY = "clonescript.upgrade.dismissed";
+
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
@@ -24,12 +26,44 @@ function initExamples() {
   });
 }
 
+function initModePills() {
+  const input = document.getElementById("composer-input");
+  document.querySelectorAll(".pill[data-mode]").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      const prefix = pill.getAttribute("data-mode");
+      if (!input || !prefix) return;
+      document.querySelectorAll(".pill[data-mode]").forEach((p) => p.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      const trimmed = input.value.trim();
+      if (!trimmed || trimmed.startsWith(prefix)) {
+        input.value = `${prefix} `;
+      }
+      input.focus();
+    });
+  });
+}
+
+function initChatListToggle() {
+  const toggle = document.getElementById("chat-list-toggle");
+  const history = document.getElementById("chat-history");
+  if (!toggle || !history) return;
+  toggle.addEventListener("click", () => {
+    const expanded = toggle.getAttribute("aria-expanded") !== "false";
+    toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    history.classList.toggle("is-collapsed", expanded);
+  });
+}
+
 function initUpgradeDismiss() {
   const card = document.getElementById("upgrade-card");
   const dismiss = document.getElementById("upgrade-dismiss");
   if (!card || !dismiss) return;
+  if (localStorage.getItem(UPGRADE_DISMISS_KEY) === "1") {
+    card.classList.add("is-hidden");
+  }
   dismiss.addEventListener("click", () => {
     card.classList.add("is-hidden");
+    localStorage.setItem(UPGRADE_DISMISS_KEY, "1");
   });
 }
 
@@ -47,5 +81,7 @@ function initComposer() {
 
 initGreeting();
 initExamples();
+initModePills();
+initChatListToggle();
 initUpgradeDismiss();
 initComposer();
