@@ -4,10 +4,42 @@
 
 const PUBMED_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 const UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search";
+const PUBMED_TOPIC_ROTATION = [
+  "biomarker OR clinical trial",
+  "CRISPR OR gene therapy",
+  "protein structure OR AlphaFold",
+  "drug target OR pharmacology",
+  "single-cell OR transcriptomics",
+  "immunotherapy OR oncology",
+  "neurodegeneration OR Alzheimer",
+];
+
 const DEFAULT_QUERIES = {
   pubmed: process.env.FLUX_PUBMED_QUERY ?? "biomarker OR CRISPR OR protein structure prediction",
   uniprot: process.env.FLUX_UNIPROT_QUERY ?? "(organism_id:9606) AND reviewed:true",
 };
+
+function formatPubMedDate(d) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+export function pubmedRecentQuery(baseQuery, days = 14, now = new Date()) {
+  const end = new Date(now);
+  const start = new Date(now);
+  start.setUTCDate(start.getUTCDate() - Math.max(1, days));
+  return `(${baseQuery}) AND (${formatPubMedDate(start)}:${formatPubMedDate(end)}[dp])`;
+}
+
+export function queriesForDay(date = new Date()) {
+  const topic = PUBMED_TOPIC_ROTATION[date.getUTCDay() % PUBMED_TOPIC_ROTATION.length];
+  return {
+    pubmed: topic,
+    uniprot: DEFAULT_QUERIES.uniprot,
+  };
+}
 
 const USER_AGENT =
   process.env.FLUX_EUTILS_TOOL ??
@@ -139,15 +171,22 @@ export async function fetchAlphaFoldItems({ accessions = [], limit = 5 } = {}) {
 
 export async function buildCoScientistFeed(options = {}) {
   const limit = options.limit ?? 4;
+  const queryBundle = { ...DEFAULT_QUERIES, ...(options.queries ?? {}) };
+  const pubmedQuery =
+    options.pubmedRecentDays != null
+      ? pubmedRecentQuery(queryBundle.pubmed, options.pubmedRecentDays)
+      : queryBundle.pubmed;
   const errors = [];
   const buckets = { pubmed: [], uniprot: [], alphafold: [] };
 
-  const pubmedResult = await Promise.allSettled([fetchPubMedItems({ limit })]);
+  const pubmedResult = await Promise.allSettled([
+    fetchPubMedItems({ query: pubmedQuery, limit }),
+  ]);
   if (pubmedResult[0].status === "fulfilled") buckets.pubmed = pubmedResult[0].value;
   else errors.push({ source: "pubmed", error: pubmedResult[0].reason?.message ?? "unknown" });
 
   const uniprotResult = await Promise.allSettled([
-    fetchUniProtItems({ limit: Math.min(3, limit) }),
+    fetchUniProtItems({ query: queryBundle.uniprot, limit: Math.min(3, limit) }),
   ]);
   if (uniprotResult[0].status === "fulfilled") buckets.uniprot = uniprotResult[0].value;
   else errors.push({ source: "uniprot", error: uniprotResult[0].reason?.message ?? "unknown" });
@@ -171,6 +210,6 @@ export async function buildCoScientistFeed(options = {}) {
     fetchedAt: new Date().toISOString(),
     items: interleaved,
     errors,
-    queries: { ...DEFAULT_QUERIES, ...(options.queries ?? {}) },
+    queries: { ...queryBundle, pubmedResolved: pubmedQuery },
   };
 }

@@ -55,6 +55,8 @@ Open http://127.0.0.1:4173 for the **AI Co-Scientist** landing (live PubMed · U
 
 Use `npm run dev` (not `npm start` alone) so `/api/co-scientist/*` proxies work locally. On Netlify, serverless functions serve the same routes.
 
+**Daily updates:** PubMed, UniProt, and AlphaFold are merged into a growing archive (`.flux/co-scientist-archive.json` locally; Netlify Blobs in production). Sync runs every 24h automatically (`@daily` scheduled function on Netlify; timer when `npm run dev` is up). Manual refresh: `npm run co-scientist:sync` or `POST /api/co-scientist/sync`.
+
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 
 Run `npm run dev` with `CURSOR_API_KEY` (or `npx @grok/agent-sdk login`) for the local pool. Deploy hosted workers with `node scripts/deploy-all-desks.mjs` (see HOSTING.md).

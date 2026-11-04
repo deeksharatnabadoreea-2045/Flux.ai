@@ -16,10 +16,12 @@ import {
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
 import {
+  forceDailyCoScientistSync,
   getCoScientistFeed,
   postCoScientistChat,
   postCoScientistFeedback,
 } from "../js/co-scientist-server.mjs";
+import { DAILY_SYNC_MS } from "../js/co-scientist-archive.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -280,6 +282,30 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/co-scientist/sync") {
+    try {
+      const out = await forceDailyCoScientistSync(ROOT);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          added: out.added ?? 0,
+          archiveSize: out.archive?.items?.length ?? 0,
+          lastDailySyncAt: out.archive?.lastDailySyncAt ?? null,
+        }),
+      );
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "daily_sync_failed",
+        }),
+      );
+    }
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/co-scientist/feed") {
     try {
       const refresh = url.searchParams.get("refresh") === "1";
@@ -461,6 +487,22 @@ server.listen(HQ_PORT, "127.0.0.1", () => {
     setTimeout(() => maybeSyncLinkedSources("startup"), 12_000);
     setInterval(() => maybeSyncLinkedSources("interval"), SOURCE_SYNC_MS);
   }
+
+  const runCoScientistDaily = async (reason) => {
+    try {
+      const out = await forceDailyCoScientistSync(ROOT);
+      console.log(
+        `[co-scientist] daily sync (${reason}): +${out.added ?? 0} items, archive ${out.archive?.items?.length ?? 0}`,
+      );
+    } catch (error) {
+      console.warn(
+        `[co-scientist] daily sync failed (${reason}):`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  };
+  setTimeout(() => runCoScientistDaily("startup"), 8_000);
+  setInterval(() => runCoScientistDaily("interval"), DAILY_SYNC_MS);
 });
 
 process.on("SIGINT", () => {

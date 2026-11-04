@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/copilot-roadmap.test.js js/co-scientist-feed.test.js",
+    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/copilot-roadmap.test.js js/co-scientist-feed.test.js js/co-scientist-archive.test.js",
+    "co-scientist:sync": "node -e \"import('./js/co-scientist-server.mjs').then(m=>m.forceDailyCoScientistSync('.')).then(x=>console.log(JSON.stringify(x,null,2)))\"",
     "sources:sync": "node -e \"import('./js/linked-sources-sync.mjs').then(m=>m.syncLinkedSources('.')).then(x=>console.log(JSON.stringify(x,null,2)))\"",
     "agents:validate": "node scripts/deploy-all-desks.mjs",
     "agents:heartbeats": "node scripts/sync-desk-heartbeats.mjs",
