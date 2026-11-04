@@ -1,6 +1,16 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { buildCoScientistFeed } from "./co-scientist-feed.mjs";
+import {
+  archiveToFeedPayload,
+  normalizeArchive,
+  runDailyCoScientistSync,
+  runDailyCoScientistSyncFile,
+} from "./co-scientist-archive.mjs";
+import {
+  getNetlifyBlobStore,
+  loadBlobArchive,
+  saveBlobArchive,
+} from "./co-scientist-blob-store.mjs";
 import { buildCoScientistReply } from "./co-scientist-chat.mjs";
 import {
   emptyFeedbackState,
@@ -30,14 +40,39 @@ export async function writeFeedbackState(root, state) {
   await writeFile(feedbackPath(root), JSON.stringify(normalizeFeedbackState(state), null, 2));
 }
 
+async function syncArchiveStores(root, { force = false } = {}) {
+  const blobStore = await getNetlifyBlobStore();
+  if (blobStore) {
+    return runDailyCoScientistSync({
+      force,
+      loadArchive: async () => normalizeArchive(await loadBlobArchive(blobStore)),
+      saveArchive: (archive) => saveBlobArchive(blobStore, archive),
+    });
+  }
+  return runDailyCoScientistSyncFile(root, { force });
+}
+
 export async function getCoScientistFeed(root, { refresh = false } = {}) {
   const now = Date.now();
   if (!refresh && feedCache.payload && now - feedCache.at < FEED_CACHE_MS) {
     return { ...feedCache.payload, cached: true };
   }
-  const payload = await buildCoScientistFeed();
+  const sync = await syncArchiveStores(root, { force: refresh });
+  const payload = {
+    ...archiveToFeedPayload(sync.archive, {
+      errors: sync.errors ?? [],
+      queries: sync.queries ?? {},
+    }),
+    addedToday: sync.added ?? 0,
+    skipped: sync.skipped ?? false,
+  };
   feedCache = { at: now, payload };
   return { ...payload, cached: false };
+}
+
+export async function forceDailyCoScientistSync(root) {
+  feedCache = { at: 0, payload: null };
+  return syncArchiveStores(root, { force: true });
 }
 
 export async function postCoScientistChat(root, { message, feed }) {

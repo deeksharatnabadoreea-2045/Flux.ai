@@ -1,8 +1,9 @@
-import { buildCoScientistFeed } from "../../js/co-scientist-feed.mjs";
+import { getCoScientistFeed } from "../../js/co-scientist-server.mjs";
 
-export async function handler() {
+export async function handler(event) {
   try {
-    const feed = await buildCoScientistFeed();
+    const refresh = event?.queryStringParameters?.refresh === "1";
+    const feed = await getCoScientistFeed(process.cwd(), { refresh });
     return {
       statusCode: 200,
       headers: {
