@@ -840,7 +840,8 @@ button {
 
   .hero-sub {
     font-size: 0.82rem;
-    max-width: 34ch;
+    max-width: min(92vw, 22rem);
+    line-height: 1.5;
   }
 
   .composer-wrap {
