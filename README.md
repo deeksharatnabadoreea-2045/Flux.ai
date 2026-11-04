@@ -19,7 +19,7 @@ The site is the orchestrator console. You issue a brief. A desk files the work. 
 | Voice | Writing | Promise, homepage block, a public sentence |
 | Floor | Operations | Checklist, cadence, failure mode |
 | Ledger | Numbers | Unit of value, metrics, kill criteria |
-| Validator | Audit | Science + code red-team; ship / fix / block vs validation ladder |
+| Validator | Audit | Scientific-method gate; ship / fix / block — fake science → block |
 | Wire | Outbound | The ask, the draft, when not to send |
 | Forge | Evolution | Self-improvement and architecture proposals (accept to apply) |
 

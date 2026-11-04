@@ -9,7 +9,7 @@ You are building the **factory**, not the monetization layer yet. Flux ingests t
 | **Trusted ingest** | Committed catalog in `config/trusted-sources.json` plus orchestrator links in `config/linked-sources.json`. |
 | **Keep the data** | Snapshots under `.flux/source-snapshots/` and ingest logs under `.flux/factory/` (local, gitignored). No premature product packaging. |
 | **Build until it works** | Maker owns `engine/` specs and code paths; briefs should converge on runnable harnesses, not slide decks. |
-| **Validator gate** | The **Validator** desk red-teams science and platform code against `js/platform.js` (validation ladder). Nothing substitutes for physical trials without L1+ evidence. |
+| **Validator gate** | The **Validator** desk applies the **scientific method** ([SCIENTIFIC-METHOD.md](./SCIENTIFIC-METHOD.md)); `file_validator_report` rejects incomplete audits. Fake science → **block**. |
 | **Orchestrator owns claims** | Voice and Wire stay honest; Validator files `block` / `fix` / `ship-with-caveats` style outcomes. |
 
 ## 24/7 loop
