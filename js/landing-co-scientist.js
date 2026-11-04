@@ -1,5 +1,4 @@
 const FEEDBACK_KEY = "flux.co-scientist.feedback.v1";
-const CHAT_KEY = "flux.co-scientist.chat.v1";
 
 let feedSnapshot = null;
 let feedbackProfile = { verbosity: "balanced" };
@@ -40,49 +39,14 @@ function renderMarkdown(md) {
     .replace(/\n/g, "<br>");
 }
 
-function sourceLabel(source) {
-  if (source === "pubmed") return "PubMed";
-  if (source === "uniprot") return "UniProt";
-  if (source === "alphafold") return "AlphaFold";
-  return source;
-}
-
-function renderFeed(items) {
-  const track = document.getElementById("cos-feed-track");
-  if (!track) return;
-  if (!items?.length) {
-    track.innerHTML = `<p class="cos-feed-empty">Feed offline — start with <code>npm run dev</code> or wait for Netlify functions.</p>`;
-    return;
-  }
-  track.innerHTML = items
-    .map(
-      (item) => `
-    <a class="cos-feed-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" data-feed-id="${esc(item.id)}">
-      <span class="cos-feed-source cos-feed-source--${esc(item.source)}">${sourceLabel(item.source)}</span>
-      <p class="cos-feed-title">${esc(item.title)}</p>
-      <p class="cos-feed-summary">${esc(item.summary)}</p>
-    </a>`,
-    )
-    .join("");
-}
-
-async function fetchFeed(refresh = false) {
-  const status = document.getElementById("cos-feed-status");
-  if (status) status.textContent = "Updating…";
+/** Background refresh for chat context — no visible feed UI. */
+async function prefetchFeed() {
   try {
-    const url = refresh ? "/api/co-scientist/feed?refresh=1" : "/api/co-scientist/feed";
-    const res = await fetch(url);
+    const res = await fetch("/api/co-scientist/feed");
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "feed_error");
-    feedSnapshot = data;
-    renderFeed(data.items);
-    if (status) {
-      const when = new Date(data.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      status.textContent = data.cached ? `Cached · ${when}` : `Live · ${when}`;
-    }
+    if (data.ok) feedSnapshot = data;
   } catch {
-    renderFeed([]);
-    if (status) status.textContent = "Offline";
+    /* chat still works; citations may be sparse */
   }
 }
 
@@ -144,6 +108,8 @@ async function sendChat(message) {
   appendMessage("user", esc(trimmed));
   const pending = appendMessage("assistant", "<p>Thinking…</p>");
 
+  if (!feedSnapshot?.items?.length) await prefetchFeed();
+
   try {
     const res = await fetch("/api/co-scientist/chat", {
       method: "POST",
@@ -156,7 +122,6 @@ async function sendChat(message) {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "chat_failed");
-    feedSnapshot = feedSnapshot ?? { items: [] };
     const html = renderMarkdown(data.reply.markdown);
     pending.querySelector(".cos-msg-body").innerHTML = html;
     pending.dataset.intents = JSON.stringify(data.reply.intents ?? []);
@@ -194,15 +159,10 @@ function bindComposer() {
   });
 }
 
-function bindFeedRefresh() {
-  document.getElementById("cos-feed-refresh")?.addEventListener("click", () => fetchFeed(true));
-}
-
 export function initCoScientistLanding() {
   const fb = loadFeedbackState();
   if (fb.profile) feedbackProfile = fb.profile;
   bindComposer();
-  bindFeedRefresh();
-  fetchFeed(false);
-  setInterval(() => fetchFeed(false), 15 * 60 * 1000);
+  prefetchFeed();
+  setInterval(prefetchFeed, 15 * 60 * 1000);
 }
