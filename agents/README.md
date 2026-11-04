@@ -27,6 +27,8 @@ cd agents/scout && npm install   # repeat per desk you run live, or install each
 npm run dev                      # from repo root — multi-agent pool on :3000
 ```
 
+Desks run **in parallel**: hosted patrol uses the same cron on each worker, and HQ can issue the same brief to all live desks at once. The dev proxy exposes `POST /api/desk/:id/start` plus session polling so many agent runs can stay in flight.
+
 Scaffold missing desks: `node scripts/scaffold-desk-agents.mjs`
 
 ## Recursive loop

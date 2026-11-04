@@ -94,64 +94,101 @@ function fileToolForDesk(deskId) {
   return `file_${deskId}_report`;
 }
 
-async function pollAgentSession(deskId, sessionId, maxMs = 180_000) {
+function playbookFallback(deskId, brief, company, evolution, reason) {
+  const playbook = runPlaybook(deskId, brief, company, evolution);
+  return { ...playbook, source: "playbook", reason };
+}
+
+function deskPlaybookMeta(deskId, brief, company, evolution) {
+  const playbook = runPlaybook(deskId, brief, company, evolution);
+  return { steps: playbook.steps, kind: playbook.kind, title: playbook.title };
+}
+
+async function ensureAgentPool() {
+  if (!hasCursorCredential()) {
+    return { ready: false, reason: "no_cursor_credential" };
+  }
+  startAgentsServe();
+  const ready = await waitForAgents();
+  return ready ? { ready: true } : { ready: false, reason: "agents_not_ready" };
+}
+
+async function readAgentSessionChunk(deskId, sessionId, startIndex = 0) {
   const toolName = fileToolForDesk(deskId);
-  const start = Date.now();
-  let lastIndex = 0;
+  const base = `${AGENTS_BASE}/${deskId}`;
+  const url = `${base}/v1/session/${sessionId}/events?format=json&startIndex=${startIndex}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    return { ok: false, status: res.status, nextIndex: startIndex, done: false };
+  }
+  const payload = await res.json();
+  const events = payload.events ?? [];
+  let nextIndex = startIndex;
   let filed = null;
   let assistantText = "";
-  const base = `${AGENTS_BASE}/${deskId}`;
+  let turnCompleted = false;
+  for (const event of events) {
+    nextIndex = Math.max(nextIndex, (event.index ?? nextIndex) + 1);
+    const type = event.type ?? event.kind;
+    if (type === "action.result" && event.data?.toolName === toolName) {
+      const result = event.data.output ?? event.data.result;
+      if (result?.title && result?.bodyMarkdown) {
+        filed = { title: result.title, body: result.bodyMarkdown };
+      }
+    }
+    if (type === "message.completed" && event.data?.text) {
+      assistantText = event.data.text;
+    }
+    if (type === "turn.completed") turnCompleted = true;
+  }
+  if (turnCompleted) {
+    if (filed?.body) {
+      return { ok: true, nextIndex, done: true, ...filed, source: "agent" };
+    }
+    if (assistantText) {
+      return {
+        ok: true,
+        nextIndex,
+        done: true,
+        title: `${deskId}: ${assistantText.split("\n")[0].slice(0, 72)}`,
+        body: assistantText,
+        source: "agent",
+      };
+    }
+    return { ok: true, nextIndex, done: true, source: "agent", title: "", body: "" };
+  }
+  return { ok: true, nextIndex, done: false, filedPreview: filed };
+}
 
+async function pollAgentSession(deskId, sessionId, maxMs = 180_000, startIndex = 0) {
+  const start = Date.now();
+  let lastIndex = startIndex;
   while (Date.now() - start < maxMs) {
-    const url = `${base}/v1/session/${sessionId}/events?format=json&startIndex=${lastIndex}`;
-    const res = await fetch(url);
-    if (!res.ok) {
+    const chunk = await readAgentSessionChunk(deskId, sessionId, lastIndex);
+    if (!chunk.ok) {
       await sleep(800);
       continue;
     }
-    const payload = await res.json();
-    const events = payload.events ?? [];
-    for (const event of events) {
-      lastIndex = Math.max(lastIndex, (event.index ?? lastIndex) + 1);
-      const type = event.type ?? event.kind;
-      if (type === "action.result" && event.data?.toolName === toolName) {
-        const result = event.data.output ?? event.data.result;
-        if (result?.title && result?.bodyMarkdown) {
-          filed = { title: result.title, body: result.bodyMarkdown };
-        }
-      }
-      if (type === "message.completed" && event.data?.text) {
-        assistantText = event.data.text;
-      }
-      if (type === "turn.completed") {
-        if (filed?.body) return { ...filed, source: "agent" };
-        if (assistantText) {
-          return {
-            title: `${deskId}: ${assistantText.split("\n")[0].slice(0, 72)}`,
-            body: assistantText,
-            source: "agent",
-          };
-        }
-      }
+    lastIndex = chunk.nextIndex;
+    if (chunk.done) {
+      return {
+        title: chunk.title,
+        body: chunk.body,
+        source: chunk.source ?? "agent",
+      };
     }
     await sleep(900);
   }
   throw new Error(`${deskId} agent timed out waiting for a filed report.`);
 }
 
-async function runDeskAgent(deskId, brief, company, jobId, evolution = {}) {
+async function startDeskAgentSession(deskId, brief, company, jobId, evolution = {}) {
   if (!AGENT_DESK_IDS.includes(deskId)) {
     throw new Error("unknown_desk");
   }
-  if (!hasCursorCredential()) {
-    const playbook = runPlaybook(deskId, brief, company, evolution);
-    return { ...playbook, source: "playbook", reason: "no_cursor_credential" };
-  }
-  startAgentsServe();
-  const ready = await waitForAgents();
-  if (!ready) {
-    const playbook = runPlaybook(deskId, brief, company, evolution);
-    return { ...playbook, source: "playbook", reason: "agents_not_ready" };
+  const pool = await ensureAgentPool();
+  if (!pool.ready) {
+    return playbookFallback(deskId, brief, company, evolution, pool.reason);
   }
 
   const res = await fetch(`${AGENTS_BASE}/${deskId}/v1/channels/floor/brief`, {
@@ -166,16 +203,26 @@ async function runDeskAgent(deskId, brief, company, jobId, evolution = {}) {
     }),
   });
   if (!res.ok) {
-    const playbook = runPlaybook(deskId, brief, company, evolution);
-    return { ...playbook, source: "playbook", reason: `channel_${res.status}` };
+    return playbookFallback(deskId, brief, company, evolution, `channel_${res.status}`);
   }
   const opened = await res.json();
-  const filed = await pollAgentSession(deskId, opened.sessionId);
+  return {
+    source: "agent",
+    sessionId: opened.sessionId,
+    playgroundUrl: opened.playgroundUrl,
+  };
+}
+
+async function runDeskAgent(deskId, brief, company, jobId, evolution = {}) {
+  const started = await startDeskAgentSession(deskId, brief, company, jobId, evolution);
+  if (started.source === "playbook") return started;
+  const filed = await pollAgentSession(deskId, started.sessionId);
+  const meta = deskPlaybookMeta(deskId, brief, company, evolution);
   return {
     title: filed.title,
     body: filed.body,
-    steps: runPlaybook(deskId, brief, company, evolution).steps,
-    kind: runPlaybook(deskId, brief, company, evolution).kind,
+    steps: meta.steps,
+    kind: meta.kind,
     source: filed.source ?? "agent",
   };
 }
@@ -317,9 +364,9 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  const deskMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)$/);
-  if (req.method === "POST" && deskMatch) {
-    const deskId = deskMatch[1];
+  const deskStartMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)\/start$/);
+  if (req.method === "POST" && deskStartMatch) {
+    const deskId = deskStartMatch[1];
     let raw = "";
     for await (const chunk of req) raw += chunk;
     try {
@@ -331,6 +378,177 @@ const server = createServer(async (req, res) => {
       if (!brief) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: "brief_required" }));
+        return;
+      }
+      const started = await startDeskAgentSession(deskId, brief, company, jobId, evolution);
+      if (started.source === "playbook") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, ...started }));
+        return;
+      }
+      const meta = deskPlaybookMeta(deskId, brief, company, evolution);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          source: "agent",
+          sessionId: started.sessionId,
+          playgroundUrl: started.playgroundUrl,
+          steps: meta.steps,
+          kind: meta.kind,
+        }),
+      );
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "desk_start_failed",
+        }),
+      );
+    }
+    return;
+  }
+
+  const deskSessionMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)\/session\/([^/]+)$/);
+  if (req.method === "GET" && deskSessionMatch) {
+    const deskId = deskSessionMatch[1];
+    const sessionId = deskSessionMatch[2];
+    const startIndex = Number(url.searchParams.get("startIndex") ?? "0");
+    const wait = url.searchParams.get("wait") === "1";
+    try {
+      if (wait) {
+        const filed = await pollAgentSession(deskId, sessionId, 180_000, startIndex);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, done: true, ...filed }));
+        return;
+      }
+      const chunk = await readAgentSessionChunk(deskId, sessionId, startIndex);
+      if (!chunk.ok) {
+        res.writeHead(502, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: `session_${chunk.status}` }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          done: chunk.done,
+          nextIndex: chunk.nextIndex,
+          title: chunk.title,
+          body: chunk.body,
+          source: chunk.source,
+        }),
+      );
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "desk_poll_failed",
+        }),
+      );
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/briefs/parallel") {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    try {
+      const payload = JSON.parse(raw);
+      const company = payload.company ?? {};
+      const evolution = payload.evolution ?? {};
+      const wait = payload.wait !== false;
+      const items = Array.isArray(payload.briefs) ? payload.briefs : [];
+      if (!items.length) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "briefs_required" }));
+        return;
+      }
+      const runners = items.map(async (item) => {
+        const deskId = String(item.deskId ?? "").trim();
+        const brief = String(item.brief ?? "").trim();
+        const jobId = item.jobId ?? "";
+        if (!deskId || !brief) {
+          return { ok: false, deskId, error: "desk_and_brief_required" };
+        }
+        try {
+          if (!wait) {
+            const started = await startDeskAgentSession(deskId, brief, company, jobId, evolution);
+            if (started.source === "playbook") return { ok: true, deskId, ...started };
+            const meta = deskPlaybookMeta(deskId, brief, company, evolution);
+            return {
+              ok: true,
+              deskId,
+              source: "agent",
+              sessionId: started.sessionId,
+              playgroundUrl: started.playgroundUrl,
+              steps: meta.steps,
+              kind: meta.kind,
+            };
+          }
+          const result = await runDeskAgent(deskId, brief, company, jobId, evolution);
+          return { ok: true, deskId, ...result };
+        } catch (error) {
+          return {
+            ok: false,
+            deskId,
+            error: error instanceof Error ? error.message : "desk_failed",
+          };
+        }
+      });
+      const results = await Promise.all(runners);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, results }));
+    } catch (error) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "parallel_briefs_failed",
+        }),
+      );
+    }
+    return;
+  }
+
+  const deskMatch = url.pathname.match(/^\/api\/desk\/([a-z]+)$/);
+  if (req.method === "POST" && deskMatch) {
+    const deskId = deskMatch[1];
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    try {
+      const payload = JSON.parse(raw);
+      const brief = String(payload.brief ?? "").trim();
+      const company = payload.company ?? {};
+      const evolution = payload.evolution ?? {};
+      const jobId = payload.jobId ?? "";
+      const wait = payload.wait !== false;
+      if (!brief) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "brief_required" }));
+        return;
+      }
+      if (!wait) {
+        const started = await startDeskAgentSession(deskId, brief, company, jobId, evolution);
+        if (started.source === "playbook") {
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ ok: true, ...started }));
+          return;
+        }
+        const meta = deskPlaybookMeta(deskId, brief, company, evolution);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            source: "agent",
+            sessionId: started.sessionId,
+            playgroundUrl: started.playgroundUrl,
+            steps: meta.steps,
+            kind: meta.kind,
+          }),
+        );
         return;
       }
       const result = await runDeskAgent(deskId, brief, company, jobId, evolution);
