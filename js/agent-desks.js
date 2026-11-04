@@ -9,6 +9,7 @@ export const AGENT_DESK_IDS = [
   "voice",
   "floor",
   "ledger",
+  "validator",
   "wire",
   "forge",
 ];

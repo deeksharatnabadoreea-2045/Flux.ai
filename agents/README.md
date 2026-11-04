@@ -17,6 +17,7 @@ Each desk has an **Agent SDK** project with:
 | Voice | `voice/` | `:3000/voice` |
 | Floor | `floor/` | `:3000/floor` |
 | Ledger | `ledger/` | `:3000/ledger` |
+| Validator | `validator/` | `:3000/validator` |
 | Wire | `wire/` | `:3000/wire` |
 | Forge | `forge/` | `:3000/forge` |
 

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flux.ai/schemas/trial-emulator.v0.json",
+  "title": "Flux trial emulator v0",
+  "type": "object",
+  "required": ["protocolId", "cohortId", "schedule", "endpoints", "validationStage"],
+  "properties": {
+    "protocolId": { "type": "string" },
+    "cohortId": { "type": "string" },
+    "validationStage": {
+      "type": "string",
+      "enum": ["L0-mechanistic", "L1-retrospective", "L2-shadow", "L3-regulatory"],
+      "description": "Must match js/platform.js VALIDATION_LADDER; default L0 until harness proves otherwise."
+    },
+    "schedule": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["visitId", "day"],
+        "properties": {
+          "visitId": { "type": "string" },
+          "day": { "type": "integer", "minimum": 0 },
+          "assessments": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "object",
+          "required": ["name", "estimator"],
+          "properties": {
+            "name": { "type": "string" },
+            "estimator": { "type": "string" },
+            "timeHorizonDays": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "estimator"],
+            "properties": {
+              "name": { "type": "string" },
+              "estimator": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "dropoutModel": { "type": "string", "description": "Reference or stub model id" },
+    "uncertainty": {
+      "type": "object",
+      "properties": {
+        "reportIntervals": { "type": "boolean", "default": true },
+        "method": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

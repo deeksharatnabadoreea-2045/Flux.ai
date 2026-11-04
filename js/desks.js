@@ -104,6 +104,32 @@ export const DESKS = [
     ],
   },
   {
+    id: "validator",
+    code: "VLD",
+    name: "Validator",
+    job: "Audit",
+    duty:
+      "Red-team science and code on the platform. Block wrong trials logic, overclaim, and unsafe architecture.",
+    verbs: [
+      "validate",
+      "validation",
+      "audit",
+      "sanity",
+      "red team",
+      "red-team",
+      "fact-check",
+      "fact check",
+      "overclaim",
+      "wrong science",
+      "unsafe",
+      "review code",
+      "code review",
+      "scientific review",
+      "block",
+      "concordance check",
+    ],
+  },
+  {
     id: "ledger",
     code: "LDG",
     name: "Ledger",
@@ -281,6 +307,8 @@ export function runPlaybook(deskId, brief, company = {}, evolution = {}) {
       return floorPlaybook(ctx);
     case "ledger":
       return ledgerPlaybook(ctx);
+    case "validator":
+      return validatorPlaybook(ctx);
     case "wire":
       return wirePlaybook(ctx);
     case "forge":
@@ -521,6 +549,52 @@ function floorPlaybook({ desk, parsed, company, evolutionBlock }) {
       "Set cadence",
       "Name standing jobs",
       "Record the failure mode",
+    ]),
+  };
+}
+
+function validatorPlaybook({ desk, parsed, company, evolutionBlock }) {
+  const body = [
+    `# ${desk.name} audit — ${clip(parsed.subject, 48)}`,
+    "",
+    "Scope",
+    parsed.raw,
+    "",
+    "Validation ladder check (L0–L3)",
+    `- L0: mechanistic plausibility only — no efficacy or replacement claim.`,
+    `- L1: requires blind retrospective replay artifact (see engine/harness/).`,
+    `- L2+: prospective shadow or regulatory-grade evidence — never assume.`,
+    "",
+    "Science red flags to hunt",
+    `- Claims of near-100% concordance without held-out trials.`,
+    `- Endpoints or cohorts that were not pre-registered.`,
+    `- Using ingest snapshots as clinical proof without independent verification.`,
+    `- Confusing in-silico simulation with observed human outcomes.`,
+    "",
+    "Code / platform red flags",
+    `- Shipping model or protocol changes without Validator + orchestrator accept.`,
+    `- Missing data lineage in digital cohort specs (engine/schemas/).`,
+    `- Bypassing Forge evolution accept for architecture changes.`,
+    "",
+    "Verdict rubric",
+    `- **ship** — aligned with current ladder stage; caveats documented.`,
+    `- **fix** — promising but needs specific corrections before accept.`,
+    `- **block** — wrong science or unsafe code path; do not accept upstream files.`,
+    "",
+    "Recommendation",
+    `Default to **fix** or **block** when the brief touches trial substitution, efficacy, or regulatory path until Maker files a harness artifact.`,
+  ].join("\n");
+
+  return {
+    title: `Validator: ${clip(parsed.firstSentence, 72)}`,
+    kind: "audit",
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
+      "Restate scope",
+      "Check validation ladder stage",
+      "List science red flags",
+      "List code red flags",
+      "Issue verdict",
     ]),
   };
 }

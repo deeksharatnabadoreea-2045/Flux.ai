@@ -28,7 +28,7 @@ Deploy **each desk** from a pushed git ref (one Agent SDK project per folder):
 
 ```bash
 SOURCE_REF="$(git rev-parse HEAD)"
-for desk in scout maker voice floor ledger wire forge; do
+for desk in scout maker voice floor ledger validator wire forge; do
   npx --yes @grok/agent-sdk@0.5.0 validate --dir "agents/$desk"
   npx --yes @grok/agent-sdk@0.5.0 deploy --dir "agents/$desk" --ref "$SOURCE_REF"
 done

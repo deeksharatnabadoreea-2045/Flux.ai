@@ -8,12 +8,16 @@ import {
   runPlaybook,
 } from "./desks.js";
 
-test("seven desks exist with codes", () => {
-  assert.equal(DESKS.length, 7);
+test("eight desks exist with codes", () => {
+  assert.equal(DESKS.length, 8);
   assert.deepEqual(
     DESKS.map((desk) => desk.code),
-    ["SCT", "MKR", "VOX", "FLR", "LDG", "WRE", "FRG"],
+    ["SCT", "MKR", "VOX", "FLR", "VLD", "LDG", "WRE", "FRG"],
   );
+});
+
+test("routeBrief sends validation audits to Validator", () => {
+  assert.equal(routeBrief("Validate the in-silico trial architecture for overclaim"), "validator");
 });
 
 test("routeBrief sends evolution briefs to Forge", () => {
