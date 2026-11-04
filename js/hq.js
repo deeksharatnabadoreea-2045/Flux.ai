@@ -829,6 +829,12 @@ function bind() {
   window.setInterval(() => {
     els.clock.textContent = `${mastClock()} Mauritius`;
   }, 30_000);
+
+  const prefillBrief = new URLSearchParams(window.location.search).get("brief");
+  if (prefillBrief) {
+    els.brief.value = prefillBrief;
+    renderRouteHint();
+  }
 }
 
 bind();
