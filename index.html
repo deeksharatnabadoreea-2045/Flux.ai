@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f8f7f5" media="(max-width: 900px)">
     <meta name="theme-color" content="#121212" media="(min-width: 901px)">
-    <title>clonescript.ai — Intelligent AI chat</title>
+    <title>AI Co-Scientist — PubMed · UniProt · AlphaFold</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -93,8 +93,21 @@
                 <div class="main-scroll">
                 <section class="hero">
                     <div class="sphere-logo" role="img" aria-label="clonescript.ai"></div>
-                    <h1 class="hero-title" id="hero-greeting">Good Afternoon, Clone. What's on your mind?</h1>
-                    <p class="hero-sub">A future-ready platform powered by intelligent AI chatbots for faster response, smarter workflows, and effortless user engagement.</p>
+                    <h1 class="hero-title" id="hero-greeting">Good Afternoon, Scientist.</h1>
+                    <p class="hero-sub">Live literature, structures, and targets — I handle search, summaries, analysis code, methods drafts, and hypotheses so you keep judgment and direction.</p>
+                </section>
+
+                <section class="cos-feed" aria-label="Live research feed">
+                    <div class="cos-feed-head">
+                        <h2 class="cos-feed-label">Live feed</h2>
+                        <span class="cos-feed-status" id="cos-feed-status">Updating…</span>
+                        <button type="button" class="cos-feed-refresh" id="cos-feed-refresh">Refresh</button>
+                    </div>
+                    <div class="cos-feed-track" id="cos-feed-track"></div>
+                </section>
+
+                <section class="cos-chat is-hidden" id="cos-chat" aria-label="Co-Scientist chat">
+                    <div class="cos-chat-thread" id="cos-chat-thread"></div>
                 </section>
 
                 </div>
@@ -104,7 +117,7 @@
                         <div class="composer-field">
                             <svg class="composer-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M5 3v2M19 19v2M3 5h2M19 19h2"/></svg>
                             <label class="sr-only" for="composer-input">Ask anything</label>
-                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Ask Anything..."></textarea>
+                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Ask about papers, structures, methods, code…"></textarea>
                         </div>
                         <div class="composer-bottom">
                             <div class="composer-tools">
@@ -122,26 +135,26 @@
                             </button>
                         </div>
                     </form>
-                    <div class="mode-pills" aria-label="Quick modes">
-                        <button type="button" class="pill" data-mode="Create an image of">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            Create Images
-                        </button>
-                        <button type="button" class="pill" data-mode="Help me study">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            Study
-                        </button>
-                        <button type="button" class="pill" data-mode="Help me build">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                            Build
-                        </button>
-                        <button type="button" class="pill" data-mode="Do deep research on">
+                    <div class="mode-pills" aria-label="Co-Scientist modes">
+                        <button type="button" class="pill" data-mode="Search PubMed for recent papers on">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                            Deep Research
+                            Literature
                         </button>
-                        <button type="button" class="pill" data-mode="Teach me about">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
-                            Learn
+                        <button type="button" class="pill" data-mode="Summarize this paper:">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Summarize
+                        </button>
+                        <button type="button" class="pill" data-mode="Write Python analysis code for">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                            Code
+                        </button>
+                        <button type="button" class="pill" data-mode="Draft a methods section for">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                            Methods
+                        </button>
+                        <button type="button" class="pill" data-mode="Generate testable hypotheses about">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12v3h8v-3a7 7 0 0 0-4-12z"/></svg>
+                            Hypotheses
                         </button>
                     </div>
                 </div>
@@ -165,5 +178,6 @@
         }
     </style>
     <script type="module" src="./js/landing.js"></script>
+    <!-- Co-Scientist: /api/co-scientist/* (npm run dev or Netlify functions) -->
 </body>
 </html>
