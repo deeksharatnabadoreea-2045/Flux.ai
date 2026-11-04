@@ -290,8 +290,16 @@ button {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
   background: var(--surface-muted);
+}
+
+.main-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .main::before {
@@ -305,12 +313,33 @@ button {
     radial-gradient(ellipse 40% 30% at 35% 10%, rgba(255, 180, 220, 0.3) 0%, transparent 45%);
 }
 
-.top-bar {
+.main-header {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.75rem;
   padding: 1rem 1.5rem 0;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle,
+.main-header-brand,
+.sidebar-close,
+.sidebar-scrim {
+  display: none;
+}
+
+.sidebar-head {
+  display: contents;
+}
+
+.main-header-brand {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .user-chip {
@@ -633,43 +662,269 @@ button {
   .sidebar {
     width: 220px;
   }
+
+  .hero {
+    padding: 0.75rem 1.25rem 0.5rem;
+  }
+
+  .examples-section,
+  .composer-wrap,
+  .landing-footer {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .app {
     margin: 0;
-    padding: 0;
+    padding: 0.65rem;
+    min-height: 100dvh;
+  }
+
+  .page-backdrop {
+    font-size: clamp(2.5rem, 22vw, 5rem);
   }
 
   .app-shell {
-    min-height: 100vh;
-    border-radius: 0;
-    flex-direction: column;
+    min-height: calc(100dvh - 1.3rem);
+    max-height: calc(100dvh - 1.3rem);
+    border-radius: 22px;
+    position: relative;
+  }
+
+  .sidebar-toggle,
+  .main-header-brand {
+    display: block;
+  }
+
+  .sidebar-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  .sidebar-scrim.is-visible {
+    display: block;
+  }
+
+  .app-shell {
+    flex-direction: row;
   }
 
   .sidebar {
-    width: 100%;
-    max-height: none;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 0.65rem;
+    left: 0.65rem;
+    bottom: 0.65rem;
+    z-index: 50;
+    width: min(288px, calc(100vw - 1.3rem));
+    max-width: 288px;
+    border-right: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+    transform: translateX(calc(-100% - 1rem));
+    transition: transform 0.28s ease;
+    pointer-events: none;
   }
 
-  .chat-history {
-    max-height: 120px;
+  .sidebar.is-open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+  }
+
+  .sidebar-head .brand {
+    margin-bottom: 0;
+  }
+
+  .sidebar-close {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: var(--ink-soft);
+  }
+
+  .sidebar-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .sidebar-close svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .main-header {
+    justify-content: space-between;
+    padding: 0.85rem 1rem 0;
+  }
+
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+
+  .sidebar-toggle svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .main-header-brand {
+    flex: 1;
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  .user-chip {
+    flex-shrink: 0;
+    padding: 0.2rem;
+    border-radius: 999px;
+  }
+
+  .user-meta {
+    display: none;
+  }
+
+  .user-chip img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  .hero {
+    justify-content: flex-start;
+    padding: 0.5rem 1rem 0.25rem;
+  }
+
+  .sphere-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.45rem, 6.5vw, 1.85rem);
+    max-width: 18ch;
+  }
+
+  .hero-sub {
+    font-size: 0.82rem;
+    max-width: 34ch;
+  }
+
+  .examples-section {
+    padding: 0 0.85rem 0.5rem;
+  }
+
+  .examples-kicker {
+    font-size: 0.6rem;
+    margin-bottom: 0.6rem;
   }
 
   .examples-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: row;
+    gap: 0.55rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0.15rem;
   }
 
-  .user-email {
+  .examples-grid::-webkit-scrollbar {
     display: none;
+  }
+
+  .example-card {
+    flex: 0 0 min(72vw, 260px);
+    min-height: 108px;
+    scroll-snap-align: start;
+  }
+
+  .composer-wrap {
+    flex-shrink: 0;
+    padding: 0.5rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--surface-muted) 78%, transparent);
+  }
+
+  .composer {
+    border-radius: 18px;
+  }
+
+  .composer-field {
+    padding: 0.75rem 0.85rem 0.25rem;
+  }
+
+  .composer-bottom {
+    padding: 0.35rem 0.55rem 0.6rem;
   }
 
   .mode-pills {
     justify-content: flex-start;
-    overflow-x: auto;
     flex-wrap: nowrap;
-    padding-bottom: 0.25rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-top: 0.65rem;
+    padding-bottom: 0.15rem;
+  }
+
+  .mode-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pill {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  .landing-footer {
+    display: none;
+  }
+
+  body.sidebar-open {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 380px) {
+  .composer-attach,
+  .composer-style {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.72rem;
+  }
+
+  .composer-style {
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

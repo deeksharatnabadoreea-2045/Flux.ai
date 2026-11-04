@@ -79,9 +79,51 @@ function initComposer() {
   });
 }
 
+function setSidebarOpen(open) {
+  const sidebar = document.getElementById("sidebar");
+  const scrim = document.getElementById("sidebar-scrim");
+  const toggle = document.getElementById("sidebar-toggle");
+  if (!sidebar || !scrim || !toggle) return;
+  sidebar.classList.toggle("is-open", open);
+  scrim.classList.toggle("is-visible", open);
+  document.body.classList.toggle("sidebar-open", open);
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+}
+
+function initMobileSidebar() {
+  const toggle = document.getElementById("sidebar-toggle");
+  const close = document.getElementById("sidebar-close");
+  const scrim = document.getElementById("sidebar-scrim");
+  const sidebar = document.getElementById("sidebar");
+  if (!toggle || !sidebar) return;
+
+  toggle.addEventListener("click", () => {
+    const open = !sidebar.classList.contains("is-open");
+    setSidebarOpen(open);
+  });
+  close?.addEventListener("click", () => setSidebarOpen(false));
+  scrim?.addEventListener("click", () => setSidebarOpen(false));
+
+  sidebar.querySelectorAll(".nav-item, .chat-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 900px)").matches) setSidebarOpen(false);
+    });
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setSidebarOpen(false);
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.matchMedia("(min-width: 901px)").matches) setSidebarOpen(false);
+  });
+}
+
 initGreeting();
 initExamples();
 initModePills();
 initChatListToggle();
 initUpgradeDismiss();
 initComposer();
+initMobileSidebar();
