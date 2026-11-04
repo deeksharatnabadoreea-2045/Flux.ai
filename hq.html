@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux.ai — Company floor (HQ)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./hq.css">
+</head>
+<body>
+    <header class="mast">
+        <div>
+            <h1 class="wordmark" id="mast-company">Flux.ai</h1>
+            <p class="tag">Scientist co-pilot — chat in, desk agents file the work. You orchestrate.</p>
+        </div>
+        <p class="mast-meta">
+            <span id="mast-clock"></span>
+            <span>Orchestrator · <strong id="mast-orchestrator">Deeksharatna</strong></span>
+        </p>
+    </header>
+
+    <main class="floor">
+        <aside class="rail">
+            <p class="kicker">Desks</p>
+            <div class="desk-list" id="desk-list"></div>
+            <div class="mission-block">
+                <p class="kicker">Company</p>
+                <label>Orchestrator
+                    <input id="orchestrator-name" name="orchestrator" autocomplete="name">
+                </label>
+                <label class="mission-field">Mission
+                    <textarea id="mission" rows="5"></textarea>
+                </label>
+                <p class="kicker">Linked websites (24/7)</p>
+                <p class="agent-note">Scout syncs these on a schedule toward in-silico trial solutions. Requires <code>npm run dev</code> for fetch + hosted egress for deploy.</p>
+                <form id="linked-source-form" class="linked-source-form">
+                    <label>URL
+                        <input id="linked-source-url" name="url" type="url" placeholder="https://clinicaltrials.gov" autocomplete="url">
+                    </label>
+                    <label>Label
+                        <input id="linked-source-label" name="label" placeholder="ClinicalTrials.gov">
+                    </label>
+                    <button type="submit" class="btn btn-quiet">Link site</button>
+                </form>
+                <ul class="linked-source-list" id="linked-source-list"></ul>
+                <p class="linked-source-meta" id="linked-source-meta"></p>
+                <button type="button" class="btn btn-quiet" id="linked-source-sync">Sync now</button>
+                <p class="kicker agent-kicker">24/7 agents</p>
+                <p class="agent-pool-status" id="agent-pool-status" aria-live="polite">Checking agent pool…</p>
+                <p class="agent-note">Desks default to live Agent SDK workers (hosted or local pool). Playbooks are fallback when the pool is offline. Patrol schedules run on deploy; recursive changes still require your accept.</p>
+                <div id="agent-settings" class="agent-settings"></div>
+                <button type="button" class="btn btn-quiet" id="reset-company">Reset founding files</button>
+            </div>
+        </aside>
+
+        <section class="work">
+            <form class="brief-form" id="brief-form">
+                <p class="kicker">Brief</p>
+                <label class="sr-only" for="brief">What should the company do next?</label>
+                <textarea id="brief" name="brief" placeholder="What should the company do next?" required></textarea>
+                <div class="brief-row">
+                    <label>
+                        <span class="sr-only">Desk</span>
+                        <select id="desk-select" name="desk"></select>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Issue brief</button>
+                </div>
+                <p class="route-hint" id="route-hint"></p>
+            </form>
+            <p class="kicker floor-kicker">The floor</p>
+            <div class="board" id="board"></div>
+        </section>
+
+        <aside class="file-pane" id="file-pane">
+            <p class="kicker">File</p>
+            <div id="file"></div>
+            <p class="kicker log-kicker">Log</p>
+            <ul class="log" id="log"></ul>
+        </aside>
+    </main>
+    <script type="module" src="./js/hq.js"></script>
+</body>
+</html>
