@@ -1,3 +1,5 @@
+import { initCoScientistLanding } from "./landing-co-scientist.js";
+
 const UPGRADE_DISMISS_KEY = "clonescript.upgrade.dismissed";
 
 function greetingForHour(hour) {
@@ -10,7 +12,7 @@ function initGreeting() {
   const el = document.getElementById("hero-greeting");
   if (!el) return;
   const hour = new Date().getHours();
-  el.textContent = `${greetingForHour(hour)}, Clone. What's on your mind?`;
+  el.textContent = `${greetingForHour(hour)}, Scientist.`;
 }
 
 function initExamples() {
@@ -68,15 +70,7 @@ function initUpgradeDismiss() {
 }
 
 function initComposer() {
-  const form = document.getElementById("composer-form");
-  const input = document.getElementById("composer-input");
-  if (!form || !input) return;
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    window.location.href = `./hq.html?brief=${encodeURIComponent(text)}`;
-  });
+  /* Co-Scientist chat handles submit in landing-co-scientist.js */
 }
 
 function setSidebarOpen(open) {
@@ -127,3 +121,4 @@ initChatListToggle();
 initUpgradeDismiss();
 initComposer();
 initMobileSidebar();
+initCoScientistLanding();

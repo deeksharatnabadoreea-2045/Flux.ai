@@ -431,6 +431,195 @@ button {
   line-height: 1.55;
 }
 
+.hero.is-compact {
+  padding-bottom: 0.25rem;
+}
+
+.hero.is-compact .sphere-logo {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 0.65rem;
+}
+
+.hero.is-compact .hero-title {
+  font-size: 1.35rem;
+}
+
+.hero.is-compact .hero-sub {
+  display: none;
+}
+
+.cos-feed {
+  position: relative;
+  z-index: 1;
+  padding: 0.35rem 1rem 0.75rem;
+}
+
+.cos-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.cos-feed-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.cos-feed-status {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+}
+
+.cos-feed-refresh {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.cos-feed-track {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.15rem;
+}
+
+.cos-feed-track::-webkit-scrollbar {
+  display: none;
+}
+
+.cos-feed-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.cos-feed-card {
+  flex: 0 0 min(78vw, 280px);
+  scroll-snap-align: start;
+  display: block;
+  padding: 0.75rem 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-card);
+}
+
+.cos-feed-source {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.cos-feed-source--pubmed { color: #1d4ed8; }
+.cos-feed-source--uniprot { color: #15803d; }
+.cos-feed-source--alphafold { color: #7c3aed; }
+
+.cos-feed-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cos-feed-summary {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cos-chat {
+  padding: 0 1rem 0.5rem;
+}
+
+.cos-chat.is-hidden {
+  display: none;
+}
+
+.cos-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.cos-msg {
+  border-radius: 14px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.cos-msg--user {
+  align-self: flex-end;
+  max-width: 92%;
+  background: #111;
+  color: #fff;
+}
+
+.cos-msg--assistant {
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+}
+
+.cos-msg-body h4 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.cos-msg-body pre {
+  overflow-x: auto;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: #f3f2ef;
+  font-size: 0.72rem;
+}
+
+.cos-msg-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.cos-feedback {
+  font-size: 0.85rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
 .composer-wrap {
   position: relative;
   z-index: 1;
@@ -636,6 +825,7 @@ button {
   }
 
   .app-shell {
+    width: 100%;
     min-height: 100dvh;
     height: 100dvh;
     max-height: none;
