@@ -431,64 +431,6 @@ button {
   line-height: 1.55;
 }
 
-.examples-section {
-  position: relative;
-  z-index: 1;
-  padding: 0 1.75rem 1rem;
-}
-
-.examples-kicker {
-  margin: 0 0 0.75rem;
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-  text-align: center;
-}
-
-.examples-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.65rem;
-}
-
-.example-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 118px;
-  padding: 0.85rem 0.9rem;
-  text-align: left;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(6px);
-  box-shadow: var(--shadow-card);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.example-card:hover {
-  border-color: rgba(0, 0, 0, 0.18);
-  box-shadow: var(--shadow-soft);
-  transform: translateY(-1px);
-}
-
-.example-card p {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 500;
-  line-height: 1.4;
-  color: var(--ink);
-}
-
-.example-card svg {
-  width: 16px;
-  height: 16px;
-  margin-top: 0.75rem;
-  stroke: var(--ink-muted);
-}
-
 .composer-wrap {
   position: relative;
   z-index: 1;
@@ -655,10 +597,6 @@ button {
 }
 
 @media (max-width: 1024px) {
-  .examples-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .sidebar {
     width: 220px;
   }
@@ -667,7 +605,6 @@ button {
     padding: 0.75rem 1.25rem 0.5rem;
   }
 
-  .examples-section,
   .composer-wrap,
   .landing-footer {
     padding-left: 1.1rem;
@@ -835,36 +772,6 @@ button {
   .hero-sub {
     font-size: 0.82rem;
     max-width: 34ch;
-  }
-
-  .examples-section {
-    padding: 0 0.85rem 0.5rem;
-  }
-
-  .examples-kicker {
-    font-size: 0.6rem;
-    margin-bottom: 0.6rem;
-  }
-
-  .examples-grid {
-    display: flex;
-    flex-direction: row;
-    gap: 0.55rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 0.15rem;
-  }
-
-  .examples-grid::-webkit-scrollbar {
-    display: none;
-  }
-
-  .example-card {
-    flex: 0 0 min(72vw, 260px);
-    min-height: 108px;
-    scroll-snap-align: start;
   }
 
   .composer-wrap {
