@@ -4,15 +4,35 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { emptyLinkedSourcesConfig, mergeSourcesConfig } from "./linked-sources.js";
+import { mergeIngestSources, parseTrustedSourcesConfig } from "./trusted-sources.js";
 
 const MAX_BYTES = 512_000;
 const EXCERPT_CHARS = 24_000;
 
 export function repoPaths(repoRoot) {
   const configPath = join(repoRoot, "config/linked-sources.json");
+  const trustedPath = join(repoRoot, "config/trusted-sources.json");
   const snapDir = join(repoRoot, ".flux/source-snapshots");
   const manifestPath = join(snapDir, "manifest.json");
-  return { configPath, snapDir, manifestPath };
+  const factoryDir = join(repoRoot, ".flux/factory");
+  const ingestLogPath = join(factoryDir, "ingest-log.jsonl");
+  return { configPath, trustedPath, snapDir, manifestPath, factoryDir, ingestLogPath };
+}
+
+export async function readTrustedSourcesConfig(repoRoot) {
+  const { trustedPath } = repoPaths(repoRoot);
+  try {
+    const raw = await readFile(trustedPath, "utf8");
+    return parseTrustedSourcesConfig(JSON.parse(raw));
+  } catch {
+    return parseTrustedSourcesConfig(null);
+  }
+}
+
+export async function readIngestSources(repoRoot) {
+  const linked = await readLinkedSourcesConfig(repoRoot);
+  const trusted = await readTrustedSourcesConfig(repoRoot);
+  return mergeIngestSources(linked.sources, trusted.sources);
 }
 
 export async function readLinkedSourcesConfig(repoRoot) {
@@ -78,38 +98,58 @@ export async function fetchOneSource(source, { signal } = {}) {
 }
 
 export async function syncLinkedSources(repoRoot, { perSourceMs = 45_000 } = {}) {
-  const { snapDir, manifestPath } = repoPaths(repoRoot);
-  const config = await readLinkedSourcesConfig(repoRoot);
+  const { snapDir, manifestPath, factoryDir, ingestLogPath } = repoPaths(repoRoot);
+  const linked = await readLinkedSourcesConfig(repoRoot);
+  const trusted = await readTrustedSourcesConfig(repoRoot);
+  const sources = mergeIngestSources(linked.sources, trusted.sources);
   await mkdir(snapDir, { recursive: true });
+  await mkdir(factoryDir, { recursive: true });
 
-  const results = [];
-  for (const source of config.sources) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), perSourceMs);
-    try {
-      const snap = await fetchOneSource(source, { signal: controller.signal });
-      const fileName = `${source.id}.json`;
-      await writeFile(join(snapDir, fileName), `${JSON.stringify(snap, null, 2)}\n`, "utf8");
-      results.push({ ...snap, file: fileName, error: null });
-    } catch (error) {
-      results.push({
-        id: source.id,
-        url: source.url,
-        label: source.label,
-        fetchedAt: new Date().toISOString(),
-        ok: false,
-        error: error instanceof Error ? error.message : "fetch_failed",
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+  const results = await Promise.all(
+    sources.map(async (source) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), perSourceMs);
+      try {
+        const snap = await fetchOneSource(source, { signal: controller.signal });
+        const fileName = `${source.id}.json`;
+        await writeFile(join(snapDir, fileName), `${JSON.stringify(snap, null, 2)}\n`, "utf8");
+        return {
+          ...snap,
+          file: fileName,
+          error: null,
+          origin: source.origin ?? "linked",
+          trustTier: source.trustTier,
+        };
+      } catch (error) {
+        return {
+          id: source.id,
+          url: source.url,
+          label: source.label,
+          origin: source.origin ?? "linked",
+          trustTier: source.trustTier,
+          fetchedAt: new Date().toISOString(),
+          ok: false,
+          error: error instanceof Error ? error.message : "fetch_failed",
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+  );
 
   const manifest = {
     syncedAt: new Date().toISOString(),
-    count: config.sources.length,
+    factoryPolicy: trusted.policy || "ingest-only",
+    count: sources.length,
+    trustedCount: trusted.sources.length,
+    linkedCount: linked.sources.length,
     results,
   };
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeFile(
+    ingestLogPath,
+    `${JSON.stringify({ at: manifest.syncedAt, ok: results.filter((r) => r.ok).length, total: results.length })}\n`,
+    { flag: "a" },
+  );
   return manifest;
 }

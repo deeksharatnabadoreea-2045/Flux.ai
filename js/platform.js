@@ -4,7 +4,8 @@
 export const PRODUCT = {
   name: "Scientist co-pilot",
   surface: "Chatbot — scientists ask; agents file research, plans, and metrics.",
-  monetization: "Paid agent access (per seat, per job, or monthly brief bundle).",
+  monetization:
+    "Factory phase: ingest and build the in-silico engine; orchestrator decides monetization later.",
   notYet: "Heavy in-silico simulation compute—that is the engine we build underneath.",
 };
 
@@ -46,6 +47,8 @@ export const DESK_ROLES_IN_TRIAL_STACK = {
   voice: "External claims, investor/regulator-facing language—no overclaim on accuracy.",
   wire: "Partners, CROs, data vendors, and agencies—the ask and the follow-up.",
   forge: "Evolution of models and architecture—always orchestrator-accept before apply.",
+  validator:
+    "Independent audit of science claims and platform code against the validation ladder—block overclaim.",
 };
 
 export const FOUNDING_MISSION = `${PRODUCT.name}: ${PRODUCT.surface} Long-term: ${NORTH_STAR.headline}. ${NORTH_STAR.orchestratorRole}`;

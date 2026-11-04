@@ -1,8 +1,10 @@
 # Flux.ai
 
-**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Monetize:** paid agent access now; heavy bio simulation later.
+**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics).
 
-**Engine (long-term):** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—built under the co-pilot as proof and tiers improve.
+**Factory (now):** [24/7 trusted ingest + build](docs/FACTORY.md)—keep snapshots, grow `engine/` until in-silico trial software is real. Monetization is orchestrator-owned later.
+
+**Engine (long-term):** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—validated on the L0–L3 ladder; **Validator** desk red-teams science and code before you accept files.
 
 **24/7 agents** are the runtime root. You orchestrate from the company floor; desk workers stay on duty (hosted or local pool), file work, and propose evolution — they never self-apply.
 
@@ -17,6 +19,7 @@ The site is the orchestrator console. You issue a brief. A desk files the work. 
 | Voice | Writing | Promise, homepage block, a public sentence |
 | Floor | Operations | Checklist, cadence, failure mode |
 | Ledger | Numbers | Unit of value, metrics, kill criteria |
+| Validator | Audit | Scientific-method gate; ship / fix / block — fake science → block |
 | Wire | Outbound | The ask, the draft, when not to send |
 | Forge | Evolution | Self-improvement and architecture proposals (accept to apply) |
 

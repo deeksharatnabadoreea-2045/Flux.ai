@@ -104,6 +104,32 @@ export const DESKS = [
     ],
   },
   {
+    id: "validator",
+    code: "VLD",
+    name: "Validator",
+    job: "Audit",
+    duty:
+      "Red-team science and code on the platform. Block wrong trials logic, overclaim, and unsafe architecture.",
+    verbs: [
+      "validate",
+      "validation",
+      "audit",
+      "sanity",
+      "red team",
+      "red-team",
+      "fact-check",
+      "fact check",
+      "overclaim",
+      "wrong science",
+      "unsafe",
+      "review code",
+      "code review",
+      "scientific review",
+      "block",
+      "concordance check",
+    ],
+  },
+  {
     id: "ledger",
     code: "LDG",
     name: "Ledger",
@@ -281,6 +307,8 @@ export function runPlaybook(deskId, brief, company = {}, evolution = {}) {
       return floorPlaybook(ctx);
     case "ledger":
       return ledgerPlaybook(ctx);
+    case "validator":
+      return validatorPlaybook(ctx);
     case "wire":
       return wirePlaybook(ctx);
     case "forge":
@@ -521,6 +549,70 @@ function floorPlaybook({ desk, parsed, company, evolutionBlock }) {
       "Set cadence",
       "Name standing jobs",
       "Record the failure mode",
+    ]),
+  };
+}
+
+function validatorPlaybook({ desk, parsed, company, evolutionBlock }) {
+  const body = [
+    `# ${desk.name} audit — ${clip(parsed.subject, 48)}`,
+    "",
+    "## Scope",
+    parsed.raw,
+    "",
+    "## Hypothesis under test",
+    `The work under review implies a testable claim about: ${clip(parsed.subject, 120)}.`,
+    "",
+    "## Predictions",
+    `- If the claim is sound, reproducible inputs (snapshots, schemas, harness output) will support it.`,
+    `- If false, observations will contradict registry fields or lack lineage.`,
+    "",
+    "## Methods and reproducibility",
+    `Apply docs/SCIENTIFIC-METHOD.md; require frozen ingest ids or repo paths for any factual statement.`,
+    "",
+    "## Observations (data in hand)",
+    `Playbook mode — no live agent session. Re-run with Validator live agent for snapshot-linked observations.`,
+    "",
+    "## Inferences (conclusions)",
+    `Cannot certify science in playbook mode; treat upstream files as unverified until a live Validator audit passes.`,
+    "",
+    "## Falsifiability",
+    `Disproved if claimed endpoints or cohort rules cannot be traced to registry JSON or schema-valid artifacts.`,
+    "",
+    "## Uncertainty",
+    `High in playbook fallback — orchestrator should not accept efficacy or trial-replacement claims from this file alone.`,
+    "",
+    "## Fake-science screening",
+    `Fail if brief or upstream work treats marketing as data, invents citations, or claims concordance without L1 harness.`,
+    "",
+    "## Validation ladder stage",
+    `Default L0 until engine/harness produces replay packets.`,
+    "",
+    "## Code / platform findings",
+    `- Missing dataLineage in engine/schemas blocks ship.`,
+    `- Evolution changes require Forge accept.`,
+    "",
+    "## Verdict",
+    `fix`,
+    "",
+    "## Required fixes",
+    `1. Re-issue to live Validator agent with npm run dev.`,
+    `2. Attach snapshot ids or NCT ids in Observations.`,
+    "",
+    "## Recommendation",
+    `wait`,
+  ].join("\n");
+
+  return {
+    title: `Validator: ${clip(parsed.firstSentence, 72)}`,
+    kind: "audit",
+    body: finalizeDeskBody(body, desk, evolutionBlock),
+    steps: withSteps(desk, [
+      "State hypothesis",
+      "Separate observations from inferences",
+      "Check falsifiability",
+      "Screen for fake science",
+      "Issue verdict",
     ]),
   };
 }

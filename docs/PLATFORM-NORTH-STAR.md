@@ -41,6 +41,7 @@ Flux does not ship the simulation engine yet. The intended layers:
 | Voice | External language—no overclaim |
 | Wire | Partners, CROs, data vendors, agencies |
 | Forge | Model and architecture evolution (accept to apply) |
+| Validator | Science and code audit — block overclaim vs L0–L3 ladder |
 
 Briefs that mention simulation, in-silico, trials, or validation auto-route toward Maker, Ledger, or Scout via `js/desks.js`.
 

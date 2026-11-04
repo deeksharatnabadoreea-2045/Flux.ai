@@ -1,6 +1,8 @@
 # Linked websites (24/7 source watch)
 
-Flux stays connected to sites you care about while you sleep. **Scout** syncs them on a schedule and looks for material toward **in-silico human trials**.
+Flux runs an **in-silico factory**: trusted public sources (committed) plus orchestrator links (HQ) are fetched 24/7. **Scout** syncs and watches; snapshots are retained for later monetization decisions by you.
+
+See [FACTORY.md](./FACTORY.md) for build-phase rules (ingest first, Validator gate, no premature packaging).
 
 ## Add a site
 
@@ -8,9 +10,12 @@ Flux stays connected to sites you care about while you sleep. **Scout** syncs th
 2. On the HQ left rail, **Linked websites** → paste URL → **Link site**.
 3. Click **Sync now** (or wait for the automatic sync every 4 hours).
 
-Sites are stored in `config/linked-sources.json` (commit this file if hosted agents should see the same list).
+| Config | Role |
+| --- | --- |
+| `config/trusted-sources.json` | Curated registries/agencies/literature (always synced) |
+| `config/linked-sources.json` | Your extra URLs from HQ (commit for hosted agents) |
 
-Snapshots land in `.flux/source-snapshots/` (local only, gitignored).
+Snapshots land in `.flux/source-snapshots/`; ingest history append-only in `.flux/factory/ingest-log.jsonl` (local, gitignored).
 
 ## What runs 24/7
 
