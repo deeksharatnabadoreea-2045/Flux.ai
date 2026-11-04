@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "policy": "Curated registries and agencies for the in-silico factory. Ingest and retain snapshots; monetization is orchestrator-owned later.",
+  "sources": [
+    {
+      "id": "trust_clinicaltrials_gov",
+      "url": "https://clinicaltrials.gov/",
+      "label": "ClinicalTrials.gov",
+      "trustTier": "registry",
+      "tags": ["trials", "registry", "insilico"]
+    },
+    {
+      "id": "trust_clinicaltrials_api_v2",
+      "url": "https://clinicaltrials.gov/api/v2/studies?pageSize=10&format=json",
+      "label": "ClinicalTrials.gov API v2 (sample page)",
+      "trustTier": "registry",
+      "tags": ["trials", "api", "json"]
+    },
+    {
+      "id": "trust_pubmed_esearch",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax=15&term=virtual+clinical+trial+OR+in+silico+trial",
+      "label": "PubMed eSearch (in-silico / virtual trial)",
+      "trustTier": "literature",
+      "tags": ["pubmed", "literature"]
+    },
+    {
+      "id": "trust_fda_guidance",
+      "url": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents",
+      "label": "FDA guidance documents",
+      "trustTier": "regulatory",
+      "tags": ["fda", "regulatory"]
+    },
+    {
+      "id": "trust_who_ictrp",
+      "url": "https://trialsearch.who.int/",
+      "label": "WHO International Clinical Trials Registry Platform",
+      "trustTier": "registry",
+      "tags": ["trials", "registry", "who"]
+    }
+  ]
+}

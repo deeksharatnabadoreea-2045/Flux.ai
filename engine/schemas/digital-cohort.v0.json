@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flux.ai/schemas/digital-cohort.v0.json",
+  "title": "Flux digital cohort v0",
+  "description": "Baseline covariates and arms for in-silico trial emulation. No outcome claims without harness validation.",
+  "type": "object",
+  "required": ["cohortId", "indication", "arms", "inclusion", "dataLineage"],
+  "properties": {
+    "cohortId": { "type": "string", "minLength": 3 },
+    "indication": { "type": "string", "minLength": 3 },
+    "registryRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["system", "studyId"],
+        "properties": {
+          "system": { "enum": ["clinicaltrials.gov", "who-ictrp", "other"] },
+          "studyId": { "type": "string" },
+          "snapshotId": { "type": "string", "description": "Key in .flux/source-snapshots manifest" }
+        }
+      }
+    },
+    "inclusion": {
+      "type": "object",
+      "properties": {
+        "criteriaMarkdown": { "type": "string" },
+        "minAge": { "type": "number" },
+        "maxAge": { "type": "number" }
+      }
+    },
+    "exclusion": { "type": "array", "items": { "type": "string" } },
+    "arms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["armId", "label", "plannedN"],
+        "properties": {
+          "armId": { "type": "string" },
+          "label": { "type": "string" },
+          "plannedN": { "type": "integer", "minimum": 1 },
+          "intervention": { "type": "string" }
+        }
+      }
+    },
+    "baselineCovariates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "dtype"],
+        "properties": {
+          "name": { "type": "string" },
+          "dtype": { "enum": ["continuous", "categorical", "binary", "time-to-event"] },
+          "unit": { "type": "string" }
+        }
+      }
+    },
+    "dataLineage": {
+      "type": "object",
+      "required": ["ingestedAt", "sources"],
+      "properties": {
+        "ingestedAt": { "type": "string", "format": "date-time" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "modelVersion": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

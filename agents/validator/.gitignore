@@ -1,0 +1,4 @@
+node_modules
+.env
+.agent-serve
+bot/evolution-appendix.md

@@ -12,6 +12,7 @@ import { materializeEvolution } from "./materialize-evolution.mjs";
 import { AGENT_DESK_IDS } from "../js/agent-desks.js";
 import {
   readLinkedSourcesConfig,
+  readTrustedSourcesConfig,
   syncLinkedSources,
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
@@ -364,6 +365,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/api/linked-sources") {
     const config = await readLinkedSourcesConfig(ROOT);
+    const trusted = await readTrustedSourcesConfig(ROOT);
     let manifest = null;
     try {
       manifest = JSON.parse(
@@ -373,7 +375,7 @@ const server = createServer(async (req, res) => {
       /* no sync yet */
     }
     res.writeHead(200, jsonHeaders());
-    res.end(JSON.stringify({ ok: true, config, manifest }));
+    res.end(JSON.stringify({ ok: true, config, trusted, manifest }));
     return;
   }
 
