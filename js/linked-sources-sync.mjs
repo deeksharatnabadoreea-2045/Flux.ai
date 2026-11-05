@@ -82,28 +82,29 @@ export async function syncLinkedSources(repoRoot, { perSourceMs = 45_000 } = {})
   const config = await readLinkedSourcesConfig(repoRoot);
   await mkdir(snapDir, { recursive: true });
 
-  const results = [];
-  for (const source of config.sources) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), perSourceMs);
-    try {
-      const snap = await fetchOneSource(source, { signal: controller.signal });
-      const fileName = `${source.id}.json`;
-      await writeFile(join(snapDir, fileName), `${JSON.stringify(snap, null, 2)}\n`, "utf8");
-      results.push({ ...snap, file: fileName, error: null });
-    } catch (error) {
-      results.push({
-        id: source.id,
-        url: source.url,
-        label: source.label,
-        fetchedAt: new Date().toISOString(),
-        ok: false,
-        error: error instanceof Error ? error.message : "fetch_failed",
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+  const results = await Promise.all(
+    config.sources.map(async (source) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), perSourceMs);
+      try {
+        const snap = await fetchOneSource(source, { signal: controller.signal });
+        const fileName = `${source.id}.json`;
+        await writeFile(join(snapDir, fileName), `${JSON.stringify(snap, null, 2)}\n`, "utf8");
+        return { ...snap, file: fileName, error: null };
+      } catch (error) {
+        return {
+          id: source.id,
+          url: source.url,
+          label: source.label,
+          fetchedAt: new Date().toISOString(),
+          ok: false,
+          error: error instanceof Error ? error.message : "fetch_failed",
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+  );
 
   const manifest = {
     syncedAt: new Date().toISOString(),
