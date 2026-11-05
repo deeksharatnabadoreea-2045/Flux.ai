@@ -85,7 +85,7 @@ function setSidebarOpen(open) {
   toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
 }
 
-function initMobileSidebar() {
+function initSidebar() {
   const toggle = document.getElementById("sidebar-toggle");
   const close = document.getElementById("sidebar-close");
   const scrim = document.getElementById("sidebar-scrim");
@@ -100,17 +100,11 @@ function initMobileSidebar() {
   scrim?.addEventListener("click", () => setSidebarOpen(false));
 
   sidebar.querySelectorAll(".nav-item, .chat-item").forEach((el) => {
-    el.addEventListener("click", () => {
-      if (window.matchMedia("(max-width: 900px)").matches) setSidebarOpen(false);
-    });
+    el.addEventListener("click", () => setSidebarOpen(false));
   });
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") setSidebarOpen(false);
-  });
-
-  window.addEventListener("resize", () => {
-    if (window.matchMedia("(min-width: 901px)").matches) setSidebarOpen(false);
   });
 }
 
@@ -120,5 +114,5 @@ initModePills();
 initChatListToggle();
 initUpgradeDismiss();
 initComposer();
-initMobileSidebar();
+initSidebar();
 initCoScientistLanding();
