@@ -139,35 +139,49 @@ class MetaBrainLogger:
 # ---------------------------------------------------------------------------
 
 
-SYSTEM_PROMPT = """You are an expert computational biologist AND senior Python software engineer \
-working on Flux.ai — an in-silico clinical simulation platform.
-
-Your job: given a FAILED simulation dossier and the current Python source of a \
-target module, propose the smallest correct code change that improves biological \
-accuracy, safety gating, or trial outcomes.
-
+SYSTEM_PROMPT = """You are the autonomous system architect for flux.ai.
 Respond with a SINGLE JSON object only — no markdown fences, no prose outside JSON.
 Schema:
 {
-  "rationale": string,                 // scientific + engineering justification
+  "rationale": string,
   "mode": "full_replacement" | "minimal_patch",
-  "updated_source": string | null,     // REQUIRED when mode=full_replacement:
-                                       // complete new file contents
-  "patch_unified": string | null,      // optional unified diff when mode=minimal_patch
-  "commit_message": string             // short conventional commit subject
+  "updated_source": string | null,
+  "patch_unified": string | null,
+  "commit_message": string
 }
-
-Rules:
-1. Prefer minimal, precise edits; use full_replacement when safer/clearer.
-2. If you provide minimal_patch, ALSO provide updated_source with the full file
-   after applying the patch so automated appliers can write the file atomically.
-3. Preserve public APIs, CLI flags, and --self-test behavior unless the failure
-   explicitly requires changing them.
-4. Do not invent non-stdlib dependencies.
-5. Do not claim clinical validation; keep changes consistent with Flux toy models.
-6. Fix root causes reflected in the dossier (tox gate, cellular response,
-   cohort metrics, trial phase failures, platform_score).
+If mode is minimal_patch you MUST still include updated_source (full file after patch).
 """
+
+
+PRE_MUTATION_PROMPT_TEMPLATE = """
+You are the autonomous system architect for flux.ai, an in silico clinical trial and cellular simulation engine.
+
+### Current Mission:
+Fix or optimize the target module based on the recent evaluation failure dossier. Your code must maintain strict numerical stability, scientific rigor (pharmacokinetics/toxicology kinetics), and clean Python syntax.
+
+### Evaluation Feedback & Error Dossier:
+{evaluation_error_report}
+
+### Target File ({target_file_path}):
+```python
+{target_file_content}
+```
+
+### Constraints:
+1. Prefer the smallest correct change that addresses the dossier root cause.
+2. Preserve public APIs, CLI flags, and `--self-test` unless the failure requires changing them.
+3. Use the Python standard library only — do not invent third-party dependencies.
+4. Keep pharmacokinetics / toxicology / cohort numerics stable (no NaNs, no divide-by-zero, clamp where needed).
+5. Do not claim clinical validation; stay consistent with Flux toy in-silico models.
+6. Output MUST be a single JSON object (no markdown fences) with keys:
+   `rationale`, `mode` (`full_replacement`|`minimal_patch`), `updated_source`,
+   `patch_unified`, `commit_message`.
+7. When `mode` is `minimal_patch`, still provide `updated_source` as the complete
+   post-patch file so git_safety / meta_loop can apply it atomically.
+
+### Extra Context:
+{extra_context}
+""".strip()
 
 
 def build_user_prompt(
@@ -177,6 +191,7 @@ def build_user_prompt(
     script_path: str,
     extra_context: str = "",
 ) -> str:
+    """Render ``PRE_MUTATION_PROMPT_TEMPLATE`` for OpenRouter / meta_loop."""
     if isinstance(dossier, Mapping):
         dossier_text = json.dumps(dossier, indent=2, sort_keys=True, default=str)
     else:
@@ -187,20 +202,16 @@ def build_user_prompt(
     if len(source_text) > 60000:
         source_text = source_text[:60000] + "\n# ... truncated ...\n"
 
-    parts = [
-        "The Flux.ai end-to-end simulation FAILED or scored too low.",
-        "Act as computational biologist + software engineer.",
-        "Return JSON per the system schema (full replacement preferred if unsure).",
-        f"\n----- target script path -----\n{script_path}\n",
-        "----- failed simulation dossier (JSON) -----\n",
-        dossier_text,
-        "\n\n----- current Python source -----\n",
-        source_text,
-    ]
-    if extra_context.strip():
-        parts.append("\n\n----- extra context -----\n")
-        parts.append(extra_context.strip())
-    return "".join(parts)
+    # Manual substitution: target source often contains `{` / `}` which would
+    # break str.format.
+    return (
+        PRE_MUTATION_PROMPT_TEMPLATE.replace(
+            "{evaluation_error_report}", dossier_text
+        )
+        .replace("{target_file_path}", script_path)
+        .replace("{target_file_content}", source_text)
+        .replace("{extra_context}", extra_context.strip() or "(none)")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -652,14 +663,17 @@ def run_self_test() -> int:
     )
     assert fenced["updated_source"] == "y\n"
 
-    # Prompt contains dossier + source
+    # Prompt contains dossier + source via PRE_MUTATION_PROMPT_TEMPLATE
     prompt = build_user_prompt(
         dossier={"dossier_id": "d1", "platform_passed": False, "platform_score": 0.1},
-        source="def foo():\n    return 1\n",
+        source="def foo(x={1}):\n    return 1\n",  # braces must not break templating
         script_path="scripts/foo.py",
     )
     assert "d1" in prompt and "def foo" in prompt
-    assert "computational biologist" in SYSTEM_PROMPT.lower()
+    assert "autonomous system architect" in prompt.lower()
+    assert "scripts/foo.py" in prompt
+    assert "{1}" in prompt  # source braces preserved
+    assert "autonomous system architect" in SYSTEM_PROMPT.lower()
 
     # Mock transport client (no network)
     class _MockClient(OpenRouterClient):
