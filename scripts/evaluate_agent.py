@@ -20,7 +20,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from primitive_agent import (  # noqa: E402
+from seed_agent import (  # noqa: E402
     SeedAgent,
     cellular_growth_planner_factory,
 )
@@ -52,6 +52,24 @@ class EvalResult:
     answer: str = ""
     error: str | None = None
 
+    @property
+    def points(self) -> int:
+        """Number of assertions that passed (0 if the harness crashed)."""
+        if self.error and not self.assertions:
+            return 0
+        return sum(1 for item in self.assertions if item.passed)
+
+    @property
+    def max_points(self) -> int:
+        if self.assertions:
+            return len(self.assertions)
+        return 4  # harness expects four assertions when healthy
+
+    @property
+    def score(self) -> float:
+        """Normalized score in [0, 1] used by the meta-loop retention check."""
+        return self.points / self.max_points if self.max_points else 0.0
+
     def summary_lines(self) -> list[str]:
         lines = ["", "=" * 60]
         for assertion in self.assertions:
@@ -60,6 +78,7 @@ class EvalResult:
         lines.append("=" * 60)
         if self.error:
             lines.append(f"Harness error: {self.error}")
+        lines.append(f"SCORE: {self.points}/{self.max_points} ({self.score:.2f})")
         lines.append(f"RESULT: {'PASS' if self.passed else 'FAIL'}")
         lines.append("=" * 60)
         return lines
