@@ -30,8 +30,11 @@ from pathlib import Path
 from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import cellular_model  # noqa: E402
 import compound_engine  # noqa: E402
@@ -63,7 +66,6 @@ from virtual_cohort import (  # noqa: E402
     run_cohort,
 )
 
-REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_LOG = REPO_ROOT / ".flux" / "simulation_pipeline_history.log"
 
 
@@ -148,18 +150,27 @@ class PipelineTarget:
     phase3_n: int = 80
     require_lipinski: bool = True
     max_tox_alerts: int = 1
+    # Optional RSI knobs (from engine.rsi) that reshape disease priors.
+    rsi_params: dict[str, float] | None = None
 
     def resolve_disease(self) -> DiseaseProfile:
         if self.disease is None:
-            return DISEASE_LIBRARY["oncology_solid"]
-        if isinstance(self.disease, DiseaseProfile):
-            return self.disease
-        key = str(self.disease)
-        if key not in DISEASE_LIBRARY:
-            raise ValueError(
-                f"unknown disease {key!r}; choose from {sorted(DISEASE_LIBRARY)}"
-            )
-        return DISEASE_LIBRARY[key]
+            base = DISEASE_LIBRARY["oncology_solid"]
+        elif isinstance(self.disease, DiseaseProfile):
+            base = self.disease
+        else:
+            key = str(self.disease)
+            if key not in DISEASE_LIBRARY:
+                raise ValueError(
+                    f"unknown disease {key!r}; choose from {sorted(DISEASE_LIBRARY)}"
+                )
+            base = DISEASE_LIBRARY[key]
+        if not self.rsi_params:
+            return base
+        # Lazy import keeps the cascade usable without the engine package.
+        from engine.pipeline_rsi import apply_rsi_params_to_disease
+
+        return apply_rsi_params_to_disease(base, self.rsi_params)
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +449,7 @@ def run_simulation_pipeline(
             phase3_n=target.phase3_n,
             require_lipinski=target.require_lipinski,
             max_tox_alerts=target.max_tox_alerts,
+            rsi_params=target.rsi_params,
         )
 
     disease_profile = target.resolve_disease()
@@ -470,6 +482,7 @@ def run_simulation_pipeline(
             "disease": asdict(disease_profile),
             "n_candidates": target.n_candidates,
             "cohort_n": target.cohort_n,
+            "rsi_params": dict(target.rsi_params) if target.rsi_params else None,
         },
         cascade_status=cascade,
         toxicology=tox.as_dict() if tox else None,
@@ -544,6 +557,39 @@ def run_simulation_pipeline(
         trial_id=trial.trial_id,
     )
     return dossier
+
+
+def run_simulation_pipeline_with_rsi(
+    target: PipelineTarget | None = None,
+    *,
+    smiles: str | None = None,
+    disease: str = "oncology_solid",
+    seed: int = 0,
+    ground_truth: dict[str, float] | None = None,
+    params: dict[str, float] | None = None,
+    memory_path: Path | None = None,
+    threshold: float = 0.85,
+    max_depth: int = 16,
+    fast: bool = True,
+) -> dict[str, Any]:
+    """Run the cascade under the RSI refine loop (85% accuracy bar).
+
+    Returns a JSON-friendly payload with the refine result, final dossier,
+    and path to the memory file that retained successful strategies.
+    """
+    from engine.pipeline_rsi import run_pipeline_with_rsi
+
+    base = target or PipelineTarget(smiles=smiles, disease=disease, seed=seed)
+    result = run_pipeline_with_rsi(
+        base,
+        ground_truth=ground_truth,
+        params=params,
+        memory_path=memory_path,
+        threshold=threshold,
+        max_depth=max_depth,
+        fast=fast,
+    )
+    return result.as_dict()
 
 
 def invoke_for_evaluator(
@@ -726,12 +772,48 @@ def run_self_test() -> int:
         print("FAIL: meta-agent API incomplete", file=sys.stderr)
         return 1
 
+    # 4) RSI-modulated disease priors should alter cellular sensitivity vs default
+    from engine.rsi import DEFAULT_PARAMS, intentionally_bad_params
+
+    d_default = run_simulation_pipeline(
+        PipelineTarget(
+            smiles="CC(=O)Oc1ccccc1C(=O)O",
+            disease="oncology_solid",
+            seed=5,
+            cohort_n=10,
+            phase1_n=4,
+            phase2_n=6,
+            phase3_n=12,
+            rsi_params=dict(DEFAULT_PARAMS),
+        )
+    )
+    d_bad = run_simulation_pipeline(
+        PipelineTarget(
+            smiles="CC(=O)Oc1ccccc1C(=O)O",
+            disease="oncology_solid",
+            seed=5,
+            cohort_n=10,
+            phase1_n=4,
+            phase2_n=6,
+            phase3_n=12,
+            rsi_params=intentionally_bad_params(),
+        )
+    )
+    if not d_default.cellular_response or not d_bad.cellular_response:
+        print("FAIL: RSI param dossiers should clear tox", file=sys.stderr)
+        return 1
+    if d_default.target.get("rsi_params") is None:
+        print("FAIL: rsi_params missing from dossier target", file=sys.stderr)
+        return 1
+
     print("simulation_pipeline self-test: ok")
     print(
         f"  aspirin_score={d1.platform_score:.3f} "
         f"nitro_blocked={d2.cascade_status.get('toxicology')} "
         f"library_score={d3.platform_score:.3f} "
-        f"eval_passed={ev['passed']}"
+        f"eval_passed={ev['passed']} "
+        f"rsi_default_score={d_default.platform_score:.3f} "
+        f"rsi_bad_score={d_bad.platform_score:.3f}"
     )
     return 0
 
@@ -759,6 +841,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--for-meta-agent",
         action="store_true",
         help="Emit invoke_for_meta_agent payload",
+    )
+    parser.add_argument(
+        "--with-rsi",
+        action="store_true",
+        help="Run cascade under RSI refine loop (memory-backed, 85%% bar)",
     )
     parser.add_argument("--self-test", action="store_true")
     return parser
@@ -788,6 +875,17 @@ def main(argv: list[str] | None = None) -> int:
             args.out.write_text(text + "\n", encoding="utf-8")
         print(text if args.json or args.out is None else f"Wrote {args.out}")
         return 0
+
+    if args.with_rsi:
+        payload = run_simulation_pipeline_with_rsi(
+            smiles=args.smiles, disease=args.disease, seed=args.seed, fast=True
+        )
+        text = json.dumps(payload, indent=2, sort_keys=True, default=str)
+        if args.out:
+            args.out.write_text(text + "\n", encoding="utf-8")
+        print(text if args.json or args.out is None else f"Wrote {args.out}")
+        refine = payload.get("refine") or {}
+        return 0 if refine.get("success") else 2
 
     target = PipelineTarget(
         smiles=args.smiles,
