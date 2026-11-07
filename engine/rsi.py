@@ -27,7 +27,10 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Sequence
+
+# params → predicted endpoint map (response_rate, toxicity_rate, …)
+SimulateFn = Callable[[Mapping[str, float]], Mapping[str, float]]
 
 ACCURACY_THRESHOLD = 0.85
 MEMORY_SCHEMA_VERSION = 1
@@ -334,9 +337,9 @@ def fetch_successful_patterns(
 def _score_params(
     params: Mapping[str, float],
     ground_truth: Mapping[str, float],
-    scenario_kwargs: Mapping[str, float],
+    simulate_fn: SimulateFn,
 ) -> float:
-    predicted = simulate_trial(params, **scenario_kwargs).endpoints
+    predicted = simulate_fn(params)
     return evaluate_against_ground_truth(predicted, ground_truth).accuracy
 
 
@@ -347,11 +350,11 @@ def update_parameters(
     *,
     learning_rate: float = 0.45,
     ground_truth: Mapping[str, float] | None = None,
-    scenario_kwargs: Mapping[str, float] | None = None,
+    simulate_fn: SimulateFn | None = None,
+    enable_hill_climb: bool = True,
 ) -> dict[str, float]:
-    """Blend toward successful memory, then hill-climb on endpoint error."""
+    """Blend toward successful memory, then optionally hill-climb on error."""
     updated = normalize_params(params)
-    scenario = dict(scenario_kwargs or {})
 
     # 1) Pull toward the mean of successful past patterns (if any).
     if patterns:
@@ -396,31 +399,32 @@ def update_parameters(
     if not patterns and not hints:
         updated["efficacy_weight"] += step
         updated["toxicity_penalty"] -= step * 0.25
+    # Always bleed a little toward defaults so cold starts can recover identity.
+    for key in PARAM_KEYS:
+        updated[key] = updated[key] + 0.08 * (DEFAULT_PARAMS[key] - updated[key])
     updated = normalize_params(updated)
 
     # 3) Coordinate hill-climb: try ±delta on each knob, keep real gains.
-    #    This is what lets a cold start climb past the 85% bar without memory.
-    if ground_truth is not None:
+    #    Skip for expensive simulators (e.g. full pipeline); they refine via recursion.
+    if enable_hill_climb and ground_truth is not None and simulate_fn is not None:
         best = normalize_params(updated)
-        best_score = _score_params(best, ground_truth, scenario)
-        # Larger steps while accuracy is poor; finer once close.
+        best_score = _score_params(best, ground_truth, simulate_fn)
         delta = 0.28 if best_score < 0.6 else 0.12 if best_score < 0.8 else 0.05
         for key in PARAM_KEYS:
             lo, hi = PARAM_BOUNDS[key]
             for direction in (+1.0, -1.0):
                 candidate = dict(best)
                 candidate[key] = _clamp(best[key] + direction * delta, lo, hi)
-                score = _score_params(candidate, ground_truth, scenario)
+                score = _score_params(candidate, ground_truth, simulate_fn)
                 if score > best_score + 1e-9:
                     best, best_score = candidate, score
-        # One second pass with a finer delta locks in near-threshold gains.
         fine = delta * 0.45
         for key in PARAM_KEYS:
             lo, hi = PARAM_BOUNDS[key]
             for direction in (+1.0, -1.0):
                 candidate = dict(best)
                 candidate[key] = _clamp(best[key] + direction * fine, lo, hi)
-                score = _score_params(candidate, ground_truth, scenario)
+                score = _score_params(candidate, ground_truth, simulate_fn)
                 if score > best_score + 1e-9:
                     best, best_score = candidate, score
         updated = best
@@ -504,6 +508,8 @@ class RSIEngine:
         params: Mapping[str, float] | None = None,
         *,
         scenario: Mapping[str, Any] | None = None,
+        simulate_fn: SimulateFn | None = None,
+        enable_hill_climb: bool = True,
         depth: int = 0,
         history: list[dict[str, Any]] | None = None,
     ) -> RefineResult:
@@ -516,6 +522,8 @@ class RSIEngine:
             threshold=self.threshold,
             max_depth=self.max_depth,
             learning_rate=self.learning_rate,
+            simulate_fn=simulate_fn,
+            enable_hill_climb=enable_hill_climb,
             depth=depth,
             history=history,
             memory=self.memory,
@@ -532,6 +540,8 @@ def refine_until_accurate(
     threshold: float = ACCURACY_THRESHOLD,
     max_depth: int = DEFAULT_MAX_DEPTH,
     learning_rate: float = 0.35,
+    simulate_fn: SimulateFn | None = None,
+    enable_hill_climb: bool = True,
     depth: int = 0,
     history: list[dict[str, Any]] | None = None,
     memory: MutableMapping[str, Any] | None = None,
@@ -557,9 +567,13 @@ def refine_until_accurate(
         "disease_severity": float((scenario or {}).get("disease_severity", 0.55)),
     }
 
-    simulation = simulate_trial(current, **scenario_kwargs)
+    def _default_simulate(p: Mapping[str, float]) -> Mapping[str, float]:
+        return simulate_trial(p, **scenario_kwargs).endpoints
+
+    active_simulate: SimulateFn = simulate_fn or _default_simulate
+    predicted = dict(active_simulate(current))
     evaluation = evaluate_against_ground_truth(
-        simulation.endpoints, ground_truth, threshold=threshold
+        predicted, ground_truth, threshold=threshold
     )
     diagnosis = analyze_error(evaluation)
     _append_accuracy_log(
@@ -585,7 +599,7 @@ def refine_until_accurate(
             params=current,
             evaluation=evaluation,
             depth=depth,
-            scenario=scenario_kwargs,
+            scenario={**(scenario or {}), **scenario_kwargs},
         )
         if persist:
             save_memory(mem, path)
@@ -623,7 +637,8 @@ def refine_until_accurate(
         patterns,
         learning_rate=learning_rate,
         ground_truth=ground_truth,
-        scenario_kwargs=scenario_kwargs,
+        simulate_fn=active_simulate,
+        enable_hill_climb=enable_hill_climb,
     )
     # Persist logs each hop so crashes still leave a trail.
     if persist:
@@ -637,6 +652,8 @@ def refine_until_accurate(
         threshold=threshold,
         max_depth=max_depth,
         learning_rate=learning_rate,
+        simulate_fn=simulate_fn,
+        enable_hill_climb=enable_hill_climb,
         depth=depth + 1,
         history=hist,
         memory=mem,
