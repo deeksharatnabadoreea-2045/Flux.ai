@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""Git safety helpers for Flux.ai agent mutations.
+"""Git safety automation for Flux.ai autonomous code evolution.
 
-Protects `seed_agent.py` (and related mutation targets) by:
-  1. Inspecting git status before a mutation
-  2. Creating a temporary checkpoint / stash
-  3. Committing successful mutations
-  4. Rolling back to the last known-good commit when evaluation fails
-  5. Appending every attempt, test result, and rollback/commit to a history log
+Programmatically guards agent mutations with:
 
-Typical usage from a meta-loop::
+  1. Temporary pre-mutation Git checkpoints (stash + known-good SHA)
+  2. Monitoring of ``evaluate_agent.py`` results (syntax + biological benchmark)
+  3. Automatic rollback to the last stable commit on failure
+  4. Descriptive automated commits that preserve evolutionary history
+
+Typical autonomous loop::
 
     safety = GitSafety()
-    checkpoint = safety.create_checkpoint(reason="pre-mutation")
-    # ... apply mutation, run evaluate_agent ...
-    if evaluation_passed:
-        safety.commit_mutation("Retain passing seed_agent mutation")
-    else:
-        safety.rollback_seed_agent(checkpoint=checkpoint, reason="eval FAIL")
+    outcome = safety.apply_mutation_with_evaluation(
+        mutated_source=new_code,
+        description="meta-brain: improve cellular planner",
+    )
+    # outcome.decision is COMMIT or ROLLBACK
 """
 
 from __future__ import annotations
@@ -24,20 +23,24 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import py_compile
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import traceback
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 DEFAULT_REPO = SCRIPTS_DIR.parent
 DEFAULT_SEED = SCRIPTS_DIR / "seed_agent.py"
+DEFAULT_EVAL = SCRIPTS_DIR / "evaluate_agent.py"
 DEFAULT_LOG = DEFAULT_REPO / ".flux" / "mutation_history.log"
 CHECKPOINT_STASH_PREFIX = "flux-agent-checkpoint"
 
@@ -141,6 +144,53 @@ class Checkpoint:
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class EvaluateAgentResult:
+    """Parsed outcome from running ``evaluate_agent.py``."""
+
+    passed: bool
+    score: float | None
+    points: int | None
+    max_points: int | None
+    returncode: int
+    syntax_ok: bool
+    output: str
+    error: str | None = None
+
+    @property
+    def result_label(self) -> str:
+        if not self.syntax_ok:
+            return "SYNTAX_ERROR"
+        return "PASS" if self.passed else "FAIL"
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class MutationOutcome:
+    """Result of a guarded mutate → evaluate → commit/rollback cycle."""
+
+    decision: str  # COMMIT | ROLLBACK
+    checkpoint: Checkpoint
+    evaluation: EvaluateAgentResult | None
+    commit_sha: str | None = None
+    restored_from: str | None = None
+    commit_message: str | None = None
+    attempt_id: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "decision": self.decision,
+            "checkpoint": self.checkpoint.as_dict(),
+            "evaluation": self.evaluation.as_dict() if self.evaluation else None,
+            "commit_sha": self.commit_sha,
+            "restored_from": self.restored_from,
+            "commit_message": self.commit_message,
+            "attempt_id": self.attempt_id,
+        }
 
 
 class GitSafety:
@@ -431,7 +481,11 @@ class GitSafety:
             details=details,
         )
         if evaluation_passed:
-            message = commit_message or f"agent mutation OK: {description}"
+            message = commit_message or format_evolution_commit_message(
+                description=description,
+                passed=True,
+                score=score,
+            )
             sha = self.commit_mutation(message)
             return f"COMMIT {sha or '(noop — nothing staged)'}"
         restored = self.rollback_seed_agent(
@@ -439,6 +493,263 @@ class GitSafety:
             reason=f"eval FAIL for {attempt_id}",
         )
         return f"ROLLBACK to {restored}"
+
+    # -- pre-mutation checkpoint + evaluate_agent automation --------------
+
+    def create_pre_mutation_checkpoint(
+        self,
+        *,
+        reason: str = "pre-mutation",
+        paths: Sequence[Path] | None = None,
+    ) -> Checkpoint:
+        """Create a temporary checkpoint *before* any agent code modification."""
+        return self.create_checkpoint(reason=reason, paths=paths)
+
+    @contextmanager
+    def mutation_transaction(
+        self,
+        *,
+        reason: str = "pre-mutation",
+        paths: Sequence[Path] | None = None,
+    ) -> Iterator[Checkpoint]:
+        """Context manager that checkpoints before a mutation block.
+
+        Does not auto-commit/rollback — callers should use
+        ``apply_mutation_with_evaluation`` for the full automated loop, or
+        call ``guard_mutation`` after evaluating inside the block.
+        """
+        checkpoint = self.create_pre_mutation_checkpoint(reason=reason, paths=paths)
+        try:
+            yield checkpoint
+        except Exception as exc:
+            self.rollback_seed_agent(
+                checkpoint=checkpoint,
+                reason=f"exception during mutation: {exc}",
+            )
+            raise
+
+    def check_python_syntax(self, path: Path | None = None) -> tuple[bool, str | None]:
+        """Return (ok, error_message) after ``py_compile`` on the target file."""
+        target = Path(path or self.seed_path)
+        try:
+            py_compile.compile(str(target), doraise=True)
+            self.logger.record("syntax_check", path=str(target), ok=True)
+            return True, None
+        except py_compile.PyCompileError as exc:
+            detail = str(exc)
+            self.logger.record(
+                "syntax_check", path=str(target), ok=False, error=detail
+            )
+            return False, detail
+
+    def run_evaluate_agent(
+        self,
+        *,
+        eval_script: Path | None = None,
+        cwd: Path | None = None,
+        timeout_s: float = 180.0,
+        check_syntax_first: bool = True,
+    ) -> EvaluateAgentResult:
+        """Run ``evaluate_agent.py`` and parse PASS/FAIL + SCORE.
+
+        Always logs the result so evolutionary history stays auditable.
+        """
+        target = self.seed_path
+        if check_syntax_first:
+            ok, err = self.check_python_syntax(target)
+            if not ok:
+                result = EvaluateAgentResult(
+                    passed=False,
+                    score=0.0,
+                    points=0,
+                    max_points=4,
+                    returncode=1,
+                    syntax_ok=False,
+                    output="",
+                    error=err,
+                )
+                self.logger.record(
+                    "evaluate_agent",
+                    **result.as_dict(),
+                    path=str(target),
+                )
+                return result
+
+        script = Path(eval_script or DEFAULT_EVAL).resolve()
+        workdir = Path(cwd or self.repo)
+        env = os.environ.copy()
+        scripts_dir = str(script.parent)
+        env["PYTHONPATH"] = os.pathsep.join(
+            [scripts_dir, env["PYTHONPATH"]] if env.get("PYTHONPATH") else [scripts_dir]
+        )
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(script)],
+                capture_output=True,
+                text=True,
+                cwd=str(workdir),
+                env=env,
+                timeout=timeout_s,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            result = EvaluateAgentResult(
+                passed=False,
+                score=0.0,
+                points=0,
+                max_points=4,
+                returncode=124,
+                syntax_ok=True,
+                output=(exc.stdout or "") if isinstance(exc.stdout, str) else "",
+                error=f"evaluate_agent timed out after {timeout_s}s",
+            )
+            self.logger.record("evaluate_agent", **result.as_dict())
+            return result
+
+        output = (completed.stdout or "") + (
+            f"\n----- stderr -----\n{completed.stderr}" if completed.stderr else ""
+        )
+        passed = bool(re.search(r"^RESULT:\s*PASS\s*$", output, re.M))
+        score = None
+        points = None
+        max_points = None
+        score_match = re.search(
+            r"^SCORE:\s*(\d+)\s*/\s*(\d+)\s*\(([0-9.]+)\)\s*$", output, re.M
+        )
+        if score_match:
+            points = int(score_match.group(1))
+            max_points = int(score_match.group(2))
+            score = float(score_match.group(3))
+        elif passed:
+            score, points, max_points = 1.0, 4, 4
+        else:
+            score, points, max_points = 0.0, 0, 4
+
+        result = EvaluateAgentResult(
+            passed=passed,
+            score=score,
+            points=points,
+            max_points=max_points,
+            returncode=completed.returncode,
+            syntax_ok=True,
+            output=output,
+            error=None if passed else "evaluate_agent reported FAIL",
+        )
+        self.logger.record(
+            "evaluate_agent",
+            passed=result.passed,
+            score=result.score,
+            points=result.points,
+            max_points=result.max_points,
+            returncode=result.returncode,
+            syntax_ok=result.syntax_ok,
+            result=result.result_label,
+        )
+        return result
+
+    def apply_mutation_with_evaluation(
+        self,
+        mutated_source: str,
+        *,
+        description: str,
+        attempt_id: str | None = None,
+        eval_script: Path | None = None,
+        cwd: Path | None = None,
+        commit_message: str | None = None,
+        skip_evaluate_agent: bool = False,
+        evaluation_passed: bool | None = None,
+        score: float | None = None,
+    ) -> MutationOutcome:
+        """Checkpoint → write mutation → syntax/eval monitor → commit or rollback.
+
+        If ``skip_evaluate_agent`` is True, callers must pass ``evaluation_passed``
+        (used by offline tests or external harnesses).
+        """
+        attempt = attempt_id or f"mut-{_utc_now().replace(':', '')}"
+        checkpoint = self.create_pre_mutation_checkpoint(
+            reason=f"pre-mutation:{attempt}",
+            paths=[self.seed_path],
+        )
+        self.record_mutation_attempt(
+            attempt_id=attempt,
+            description=description,
+            extra={"bytes": len(mutated_source)},
+        )
+
+        self.seed_path.write_text(mutated_source, encoding="utf-8")
+        # Drop stale bytecode so evaluate_agent imports the new source.
+        for stale in self.seed_path.parent.glob("__pycache__/seed_agent*.pyc"):
+            stale.unlink(missing_ok=True)
+
+        if skip_evaluate_agent:
+            if evaluation_passed is None:
+                raise GitSafetyError(
+                    "skip_evaluate_agent requires evaluation_passed=True/False"
+                )
+            evaluation = EvaluateAgentResult(
+                passed=bool(evaluation_passed),
+                score=score,
+                points=None,
+                max_points=None,
+                returncode=0 if evaluation_passed else 1,
+                syntax_ok=True,
+                output="(external evaluation)",
+            )
+        else:
+            evaluation = self.run_evaluate_agent(
+                eval_script=eval_script, cwd=cwd or self.repo
+            )
+
+        self.record_test_result(
+            attempt_id=attempt,
+            passed=evaluation.passed and evaluation.syntax_ok,
+            score=evaluation.score,
+            details=evaluation.result_label,
+            extra={
+                "syntax_ok": evaluation.syntax_ok,
+                "returncode": evaluation.returncode,
+                "error": evaluation.error,
+            },
+        )
+
+        ok = bool(evaluation.syntax_ok and evaluation.passed)
+        if ok:
+            message = commit_message or format_evolution_commit_message(
+                description=description,
+                passed=True,
+                score=evaluation.score,
+                syntax_ok=evaluation.syntax_ok,
+                attempt_id=attempt,
+            )
+            sha = self.commit_mutation(message, paths=[self.seed_path])
+            if sha:
+                self.mark_known_good(sha)
+            outcome = MutationOutcome(
+                decision="COMMIT",
+                checkpoint=checkpoint,
+                evaluation=evaluation,
+                commit_sha=sha,
+                commit_message=message,
+                attempt_id=attempt,
+            )
+            self.logger.record("mutation_outcome", **outcome.as_dict())
+            return outcome
+
+        reason = (
+            "syntax error after mutation"
+            if not evaluation.syntax_ok
+            else "evaluate_agent biological benchmark FAIL"
+        )
+        restored = self.rollback_seed_agent(checkpoint=checkpoint, reason=reason)
+        outcome = MutationOutcome(
+            decision="ROLLBACK",
+            checkpoint=checkpoint,
+            evaluation=evaluation,
+            restored_from=restored,
+            attempt_id=attempt,
+        )
+        self.logger.record("mutation_outcome", **outcome.as_dict())
+        return outcome
 
     # -- internals ----------------------------------------------------------
 
@@ -502,6 +813,24 @@ class GitSafety:
             ok=result.returncode == 0,
             detail=(result.stderr or result.stdout or "").strip(),
         )
+
+
+def format_evolution_commit_message(
+    *,
+    description: str,
+    passed: bool,
+    score: float | None = None,
+    syntax_ok: bool = True,
+    attempt_id: str | None = None,
+) -> str:
+    """Descriptive automated commit message for evolutionary history."""
+    status = "pass" if passed and syntax_ok else "fail"
+    score_bit = f" score={score:.3f}" if score is not None else ""
+    attempt_bit = f" [{attempt_id}]" if attempt_id else ""
+    summary = description.strip().replace("\n", " ")
+    if len(summary) > 72:
+        summary = summary[:69] + "..."
+    return f"evolve({status}): {summary}{score_bit}{attempt_bit}"
 
 
 # ---------------------------------------------------------------------------
@@ -617,6 +946,77 @@ def run_self_test() -> int:
             return 1
         print(f"  log entries: {len(entries)} @ {log_path}")
 
+        print("Self-test 6: syntax failure → automatic ROLLBACK")
+        broken_syntax = "def oops(:\n    return 1\n"
+        outcome_syntax = safety.apply_mutation_with_evaluation(
+            broken_syntax,
+            description="inject syntax error",
+            attempt_id="t6-syntax",
+            # Force syntax path without needing a real evaluate_agent in temp repo.
+            skip_evaluate_agent=False,
+            eval_script=root / "scripts" / "missing_evaluate_agent.py",
+        )
+        # Missing eval script never reached if syntax fails first.
+        if outcome_syntax.decision != "ROLLBACK":
+            print(
+                f"FAIL: expected ROLLBACK on syntax error, got {outcome_syntax.decision}",
+                file=sys.stderr,
+            )
+            return 1
+        if outcome_syntax.evaluation is None or outcome_syntax.evaluation.syntax_ok:
+            print("FAIL: syntax_ok should be False", file=sys.stderr)
+            return 1
+        if "ok-improved" not in seed.read_text(encoding="utf-8"):
+            # Last successful commit content should still be on disk after rollback
+            # of the syntax mutation (rollback restores known-good from checkpoint
+            # which was HEAD after test 4 commit = ok-improved).
+            print("FAIL: syntax rollback lost last good content", file=sys.stderr)
+            return 1
+        print(f"  {outcome_syntax.decision} (syntax)")
+
+        print("Self-test 7: apply_mutation_with_evaluation COMMIT path")
+        # Mark current HEAD known-good then improve via external eval flag.
+        safety.mark_known_good()
+        outcome_ok = safety.apply_mutation_with_evaluation(
+            "# known-good seed\ndef run():\n    return 'ok-evolved'\n",
+            description="evolve return marker",
+            attempt_id="t7-commit",
+            skip_evaluate_agent=True,
+            evaluation_passed=True,
+            score=1.0,
+        )
+        if outcome_ok.decision != "COMMIT" or not outcome_ok.commit_sha:
+            print(f"FAIL: expected COMMIT, got {outcome_ok.as_dict()}", file=sys.stderr)
+            return 1
+        if "ok-evolved" not in seed.read_text(encoding="utf-8"):
+            print("FAIL: committed content missing", file=sys.stderr)
+            return 1
+        if not (outcome_ok.commit_message or "").startswith("evolve(pass):"):
+            print(
+                f"FAIL: unexpected commit message {outcome_ok.commit_message!r}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"  {outcome_ok.decision} {outcome_ok.commit_sha[:8]}")
+
+        print("Self-test 8: biological benchmark FAIL → ROLLBACK")
+        before = seed.read_text(encoding="utf-8")
+        outcome_fail = safety.apply_mutation_with_evaluation(
+            "# broken biology\ndef run():\n    raise RuntimeError('bad')\n",
+            description="break biological benchmark",
+            attempt_id="t8-fail",
+            skip_evaluate_agent=True,
+            evaluation_passed=False,
+            score=0.0,
+        )
+        if outcome_fail.decision != "ROLLBACK":
+            print(f"FAIL: expected ROLLBACK, got {outcome_fail.decision}", file=sys.stderr)
+            return 1
+        if seed.read_text(encoding="utf-8") != before:
+            print("FAIL: benchmark FAIL did not restore prior content", file=sys.stderr)
+            return 1
+        print(f"  {outcome_fail.decision} → {outcome_fail.restored_from[:8]}")
+
         print("\ngit_safety self-test: ok")
         return 0
     except Exception:  # noqa: BLE001
@@ -652,6 +1052,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print git status JSON and exit",
     )
     parser.add_argument(
+        "--checkpoint",
+        action="store_true",
+        help="Create a pre-mutation checkpoint and print it as JSON",
+    )
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Run evaluate_agent.py against --seed and print the result JSON",
+    )
+    parser.add_argument(
+        "--eval-script",
+        type=Path,
+        default=DEFAULT_EVAL,
+        help="Path to evaluate_agent.py",
+    )
+    parser.add_argument(
         "--self-test",
         action="store_true",
         help="Run offline safety checks in a temporary git repo",
@@ -669,6 +1085,14 @@ def main(argv: list[str] | None = None) -> int:
         status = safety.check_git_status()
         print(json.dumps(status.as_dict(), indent=2))
         return 0
+    if args.checkpoint:
+        checkpoint = safety.create_pre_mutation_checkpoint(reason="cli-checkpoint")
+        print(json.dumps(checkpoint.as_dict(), indent=2))
+        return 0
+    if args.evaluate:
+        result = safety.run_evaluate_agent(eval_script=args.eval_script)
+        print(json.dumps(result.as_dict(), indent=2))
+        return 0 if result.passed and result.syntax_ok else 1
 
     # Default: show status summary so the script is useful without flags.
     status = safety.check_git_status()
