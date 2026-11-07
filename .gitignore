@@ -1,4 +1,6 @@
 .flux/
+__pycache__/
+*.py[cod]
 engine/memory.json
 engine/memory.json.tmp
 
