@@ -25,9 +25,10 @@ import tempfile
 import traceback
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +36,19 @@ from typing import Any, Callable
 # ---------------------------------------------------------------------------
 
 ROOT = Path.cwd().resolve()
+
+
+@contextmanager
+def use_workspace(path: str | Path) -> Iterator[Path]:
+    """Temporarily run tools against an isolated workspace root."""
+    global ROOT
+    previous = ROOT
+    ROOT = Path(path).resolve()
+    ROOT.mkdir(parents=True, exist_ok=True)
+    try:
+        yield ROOT
+    finally:
+        ROOT = previous
 
 
 def _resolve(path: str) -> Path:
@@ -167,53 +181,72 @@ class Step:
 
 
 @dataclass
-class Agent:
+class SeedAgent:
+    """Coding agent that completes tasks via the four primitive tools."""
+
     task: str
     max_steps: int = 12
     model: str = "gpt-4o-mini"
     api_base: str = "https://api.openai.com/v1"
     history: list[Step] = field(default_factory=list)
+    logs: list[str] = field(default_factory=list)
 
-    def run(self, planner: Callable[["Agent"], dict[str, Any]] | None = None) -> str:
+    def log(self, message: str) -> None:
+        self.logs.append(message)
+        print(message)
+
+    def run(
+        self,
+        planner: Callable[["SeedAgent"], dict[str, Any]] | None = None,
+        workspace: str | Path | None = None,
+    ) -> str:
         """Run the observe → decide → act loop until done or max_steps."""
+        if workspace is not None:
+            with use_workspace(workspace):
+                return self._run_loop(planner)
+        return self._run_loop(planner)
+
+    def _run_loop(
+        self, planner: Callable[["SeedAgent"], dict[str, Any]] | None
+    ) -> str:
         decide = planner or self._llm_decide
-        print(f"Task: {self.task}\n")
+        self.log(f"Task: {self.task}\n")
 
         for step_idx in range(1, self.max_steps + 1):
-            print(f"--- step {step_idx}/{self.max_steps} ---")
+            self.log(f"--- step {step_idx}/{self.max_steps} ---")
             decision = decide(self)
             thought = str(decision.get("thought", "")).strip()
             if thought:
-                print(f"thought: {thought}")
+                self.log(f"thought: {thought}")
 
             if decision.get("done"):
                 answer = str(decision.get("answer", "")).strip() or "(no answer)"
                 self.history.append(Step(thought=thought, answer=answer))
-                print(f"done: {answer}")
+                self.log(f"done: {answer}")
                 return answer
 
             tool = decision.get("tool")
             args = decision.get("args") or {}
             if not isinstance(tool, str) or not isinstance(args, dict):
                 observation = "error: decision must include tool+args or done=true"
-                print(observation)
+                self.log(observation)
                 self.history.append(
                     Step(thought=thought, tool=str(tool), args={}, observation=observation)
                 )
                 continue
 
-            print(f"tool: {tool}({json.dumps(args, ensure_ascii=False)[:200]})")
+            self.log(f"tool: {tool}({json.dumps(args, ensure_ascii=False)[:200]})")
             try:
                 observation = dispatch_tool(tool, args)
             except Exception as exc:  # noqa: BLE001 — surface tool failures to the loop
                 observation = f"error: {type(exc).__name__}: {exc}"
-            print(f"observation:\n{observation}\n")
+            self.log(f"observation:\n{observation}\n")
             self.history.append(
                 Step(thought=thought, tool=tool, args=args, observation=observation)
             )
 
         final = "Stopped: reached max_steps without finishing."
-        print(final)
+        self.log(final)
         return final
 
     def _transcript(self) -> str:
@@ -229,7 +262,7 @@ class Agent:
                 chunks.append(f"  answer: {step.answer}")
         return "\n".join(chunks)
 
-    def _llm_decide(self, _self: "Agent") -> dict[str, Any]:
+    def _llm_decide(self, _self: "SeedAgent") -> dict[str, Any]:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError(
@@ -273,6 +306,10 @@ class Agent:
         return _parse_decision(content)
 
 
+# Back-compat alias
+Agent = SeedAgent
+
+
 def _parse_decision(raw: str) -> dict[str, Any]:
     text = raw.strip()
     if text.startswith("```"):
@@ -286,7 +323,7 @@ def _parse_decision(raw: str) -> dict[str, Any]:
 # Deterministic demo planner (no API key required)
 # ---------------------------------------------------------------------------
 
-def demo_planner_factory(task: str) -> Callable[[Agent], dict[str, Any]]:
+def demo_planner_factory(task: str) -> Callable[[SeedAgent], dict[str, Any]]:
     """Return a scripted planner that uses all four tools against a sample task."""
     out_path = "agent_workspace/hello.py"
     script = (
@@ -337,9 +374,83 @@ def demo_planner_factory(task: str) -> Callable[[Agent], dict[str, Any]]:
     ]
     cursor = {"i": 0}
 
-    def planner(_agent: Agent) -> dict[str, Any]:
+    def planner(_agent: SeedAgent) -> dict[str, Any]:
         if cursor["i"] >= len(plan):
             return {"done": True, "answer": "Demo plan exhausted.", "thought": ""}
+        step = plan[cursor["i"]]
+        cursor["i"] += 1
+        return step
+
+    return planner
+
+
+def cellular_growth_planner_factory(
+    out_path: str = "cellular_growth.py",
+) -> Callable[[SeedAgent], dict[str, Any]]:
+    """Scripted planner for the cellular-growth evaluation benchmark."""
+    script = '''"""Mock exponential cellular growth model for Flux.ai evals."""
+
+def simulate_growth(initial_cells: int, doublings: int) -> list[int]:
+    """Return population after each doubling step."""
+    if initial_cells < 1:
+        raise ValueError("initial_cells must be >= 1")
+    if doublings < 0:
+        raise ValueError("doublings must be >= 0")
+    population = [initial_cells]
+    cells = initial_cells
+    for _ in range(doublings):
+        cells *= 2
+        population.append(cells)
+    return population
+
+
+if __name__ == "__main__":
+    series = simulate_growth(1, 5)
+    assert series == [1, 2, 4, 8, 16, 32], series
+    print("growth_ok", series[-1])
+'''
+    plan = [
+        {
+            "thought": "Inspect the isolated harness workspace before writing.",
+            "tool": "list_directory",
+            "args": {"path": "."},
+        },
+        {
+            "thought": "Create the mock cellular growth script.",
+            "tool": "write_file",
+            "args": {"path": out_path, "content": script},
+        },
+        {
+            "thought": "Read the script back to confirm it was written.",
+            "tool": "read_file",
+            "args": {"path": out_path},
+        },
+        {
+            "thought": "Execute the growth script and verify assertions pass.",
+            "tool": "run_python",
+            "args": {
+                "code": (
+                    "from pathlib import Path\n"
+                    f"src = Path({out_path!r}).read_text()\n"
+                    "ns = {}\n"
+                    "exec(compile(src, 'cellular_growth.py', 'exec'), ns)\n"
+                    "series = ns['simulate_growth'](1, 5)\n"
+                    "assert series == [1, 2, 4, 8, 16, 32], series\n"
+                    "print('growth_ok', series[-1])\n"
+                )
+            },
+        },
+        {
+            "thought": "Benchmark objective complete.",
+            "done": True,
+            "answer": f"Created and executed {out_path} without errors.",
+        },
+    ]
+    cursor = {"i": 0}
+
+    def planner(_agent: SeedAgent) -> dict[str, Any]:
+        if cursor["i"] >= len(plan):
+            return {"done": True, "answer": "Planner exhausted.", "thought": ""}
         step = plan[cursor["i"]]
         cursor["i"] += 1
         return step
@@ -412,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
             traceback.print_exc()
             return 1
 
-    agent = Agent(
+    agent = SeedAgent(
         task=args.task,
         max_steps=args.max_steps,
         model=args.model,
