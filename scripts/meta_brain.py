@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """OpenRouter-powered meta-brain for Flux.ai autonomous code evolution.
 
-Sends a failed simulation dossier plus the current Python source to a frontier
-model, prompting it as an expert computational biologist *and* software
-engineer to return a minimal patch or full script replacement.
-
-Outputs are structured for:
-  * ``meta_loop.py`` — ``(rationale, updated_source)`` mutator contract
-  * ``git_safety.py`` — checkpoint → apply → commit / rollback helpers
-  * token-usage accounting for cost-aware agent loops
+Primary helpers:
+  * ``generate_code_patch(current_code, error_feedback)`` — send the current
+    file + test/score feedback to OpenRouter and receive **only** clean,
+    executable Python (no conversational filler).
+  * Structured dossier mutations for ``meta_loop`` / ``git_safety`` with
+    token-usage tracking.
 
 Example::
 
+    from meta_brain import generate_code_patch
+    new_src = generate_code_patch(open("scripts/seed_agent.py").read(), "SCORE: 0.5 FAIL")
+
     python3 scripts/meta_brain.py --self-test
-    python3 scripts/meta_brain.py --dossier /tmp/fail.json --script scripts/seed_agent.py
 """
 
 from __future__ import annotations
@@ -354,18 +354,20 @@ class OpenRouterClient:
         user: str,
         model: str | None = None,
         temperature: float | None = None,
+        json_object: bool = True,
     ) -> dict[str, Any]:
         key = self._resolve_key()
         model_name = model or self.model
-        payload = {
+        payload: dict[str, Any] = {
             "model": model_name,
             "temperature": self.temperature if temperature is None else temperature,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "response_format": {"type": "json_object"},
         }
+        if json_object:
+            payload["response_format"] = {"type": "json_object"}
         request = urllib.request.Request(
             self.api_base,
             data=json.dumps(payload).encode("utf-8"),
@@ -616,6 +618,168 @@ def request_dossier_mutation(
 
 
 # ---------------------------------------------------------------------------
+# Simple code-patch API (clean executable Python only)
+# ---------------------------------------------------------------------------
+
+
+CODE_PATCH_SYSTEM_PROMPT = """You are a Python code generator for flux.ai.
+Return ONLY clean, executable Python source code for the full file.
+Do NOT include markdown fences, explanations, apologies, or conversational filler.
+Do NOT wrap the answer in JSON.
+The first character of your reply must be valid Python (e.g. '#', '\"', \"'\", or a letter).
+Preserve public APIs unless the error feedback requires changing them.
+Use the Python standard library only.
+"""
+
+
+CODE_PATCH_USER_TEMPLATE = """
+### Error feedback / test score
+{error_feedback}
+
+### Current Python file
+```python
+{current_code}
+```
+
+Rewrite the complete file so it addresses the feedback above.
+Reply with executable Python only — no prose before or after the code.
+""".strip()
+
+
+def extract_executable_python(raw: str) -> str:
+    """Strip optional markdown fences / leading chatter; return Python source."""
+    text = (raw or "").strip()
+    if not text:
+        raise MetaBrainError("model returned empty code patch")
+
+    # Prefer fenced python block if present.
+    if "```" in text:
+        parts = text.split("```")
+        # chunks: preamble, lang+body, after, ...
+        for i in range(1, len(parts), 2):
+            block = parts[i]
+            if not block.strip():
+                continue
+            lines = block.splitlines()
+            if lines and lines[0].strip().lower() in {"python", "py", "python3"}:
+                body = "\n".join(lines[1:]).strip()
+            else:
+                body = block.strip()
+            if body:
+                return body + ("\n" if not body.endswith("\n") else "")
+        # Fall through to whole-text cleanup.
+
+    # Drop a single leading prose line if the rest looks like Python.
+    lines = text.splitlines()
+    if lines and not lines[0].lstrip().startswith(
+        ("#", "\"", "'", "from ", "import ", "def ", "class ", "@", "async ")
+    ):
+        # Keep as-is if later lines don't look like code either.
+        if any(
+            ln.lstrip().startswith(("def ", "class ", "import ", "from "))
+            for ln in lines[1:6]
+        ):
+            text = "\n".join(lines[1:]).strip()
+
+    if not text.strip():
+        raise MetaBrainError("could not extract executable Python from model reply")
+    return text if text.endswith("\n") else text + "\n"
+
+
+def generate_code_patch(
+    current_code: str,
+    error_feedback: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    api_key: str | None = None,
+    timeout_s: float = 120.0,
+    client: OpenRouterClient | None = None,
+    logger: MetaBrainLogger | None = None,
+) -> str:
+    """Send current file + test/score feedback to OpenRouter; return Python only.
+
+    Parameters
+    ----------
+    current_code:
+        Full contents of the file under repair.
+    error_feedback:
+        Evaluation / test score report (plain text or JSON string).
+
+    Returns
+    -------
+    str
+        Clean, executable Python source for the full file.
+
+    Raises
+    ------
+    MetaBrainError
+        On missing API key, timeout, HTTP/network failure, or empty/invalid reply.
+    """
+    log = logger or MetaBrainLogger()
+    transport = client or OpenRouterClient(
+        api_key=api_key,
+        model=model,
+        timeout_s=timeout_s,
+        logger=log,
+        title="Flux.ai meta-brain code-patch",
+    )
+
+    # Bound payloads for token control.
+    code = current_code if len(current_code) <= 60000 else (
+        current_code[:60000] + "\n# ... truncated ...\n"
+    )
+    feedback = (error_feedback or "").strip() or "(no feedback provided)"
+    if len(feedback) > 14000:
+        feedback = feedback[-14000:]
+
+    user = (
+        CODE_PATCH_USER_TEMPLATE.replace("{error_feedback}", feedback).replace(
+            "{current_code}", code
+        )
+    )
+
+    try:
+        body = transport.chat(
+            system=CODE_PATCH_SYSTEM_PROMPT,
+            user=user,
+            model=model,
+            json_object=False,
+        )
+    except MetaBrainError:
+        log.record(
+            "generate_code_patch_error",
+            error=traceback.format_exc()[-1500:],
+            model=model,
+        )
+        raise
+    except Exception as exc:  # noqa: BLE001
+        log.record(
+            "generate_code_patch_error",
+            error=str(exc),
+            model=model,
+        )
+        raise MetaBrainError(f"OpenRouter code-patch failed: {exc}") from exc
+
+    try:
+        content = body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise MetaBrainError(f"malformed OpenRouter response: {exc}") from exc
+    if not isinstance(content, str):
+        raise MetaBrainError("model content is not a string")
+
+    patched = extract_executable_python(content)
+    log.record(
+        "generate_code_patch",
+        model=model,
+        input_bytes=len(current_code),
+        feedback_bytes=len(error_feedback or ""),
+        output_bytes=len(patched),
+        usage=extract_token_usage(body).as_dict(),
+    )
+    return patched
+
+
+# ---------------------------------------------------------------------------
 # Self-test / CLI
 # ---------------------------------------------------------------------------
 
@@ -677,9 +841,33 @@ def run_self_test() -> int:
 
     # Mock transport client (no network)
     class _MockClient(OpenRouterClient):
-        def chat(self, *, system: str, user: str, model: str | None = None, temperature: float | None = None) -> dict[str, Any]:
+        def chat(
+            self,
+            *,
+            system: str,
+            user: str,
+            model: str | None = None,
+            temperature: float | None = None,
+            json_object: bool = True,
+        ) -> dict[str, Any]:
             usage = TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
             self.cumulative_usage.accumulate(usage)
+            if not json_object:
+                # Raw Python path for generate_code_patch
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "```python\n"
+                                    + source_out
+                                    + "```\nHere is the fixed file.\n"
+                                )
+                            }
+                        }
+                    ],
+                    "usage": usage.as_dict(),
+                }
             return {
                 "choices": [
                     {
@@ -717,6 +905,35 @@ def run_self_test() -> int:
     mutator = brain.as_meta_loop_mutator("scripts/dummy.py")
     r, s = mutator("VALUE = 1\n", json.dumps({"dossier_id": "d2", "platform_passed": False}))
     assert s == source_out and r == "mock fix"
+
+    # generate_code_patch: clean Python only (strips fences + filler)
+    assert "executable Python" in CODE_PATCH_SYSTEM_PROMPT or "ONLY clean" in CODE_PATCH_SYSTEM_PROMPT
+    patched = generate_code_patch(
+        "VALUE = 1\n",
+        "SCORE: 0.50 RESULT: FAIL — raise VALUE",
+        client=_MockClient(api_key="test", logger=MetaBrainLogger(log_path)),
+        logger=MetaBrainLogger(log_path),
+    )
+    assert patched == source_out, patched
+    assert "Here is the fixed" not in patched
+
+    # extract_executable_python helpers
+    assert extract_executable_python("```python\nx=1\n```\n").strip() == "x=1"
+
+    class _TimeoutClient(OpenRouterClient):
+        def chat(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            raise MetaBrainError("OpenRouter timeout after 1.0s")
+
+    try:
+        generate_code_patch(
+            "x=1\n",
+            "SCORE: 0 FAIL",
+            client=_TimeoutClient(api_key="test"),
+            logger=MetaBrainLogger(log_path),
+        )
+        raise AssertionError("expected MetaBrainError on timeout")
+    except MetaBrainError as exc:
+        assert "timeout" in str(exc).lower()
 
     # git_safety apply path in an isolated repo
     import tempfile
