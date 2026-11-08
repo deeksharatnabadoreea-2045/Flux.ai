@@ -237,6 +237,12 @@ button {
   padding: 0 0.15rem;
 }
 
+.chat-empty {
+  margin: 0.35rem 0.5rem;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
 .chat-group {
   margin-bottom: 1rem;
 }
@@ -411,6 +417,13 @@ button {
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Keeps the Flux name centered when the old user chip is gone */
+.main-header::after {
+  content: "";
+  width: 40px;
+  flex-shrink: 0;
 }
 
 .user-chip {
