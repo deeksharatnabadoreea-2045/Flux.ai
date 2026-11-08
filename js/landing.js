@@ -1,3 +1,4 @@
+import { ACCESS } from "./access-config.js";
 import { initCoScientistLanding } from "./landing-co-scientist.js";
 
 function greetingForHour(hour) {
@@ -58,7 +59,33 @@ function initSidebar() {
   });
 }
 
+function initAccess() {
+  const openBtn = document.getElementById("access-open");
+  const dialog = document.getElementById("access-dialog");
+  const pay = document.getElementById("access-pay");
+  const price = document.getElementById("access-price");
+  const offer = dialog?.querySelector(".access-offer");
+  if (!openBtn || !dialog || !pay) return;
+
+  if (price) price.textContent = ACCESS.priceText;
+  if (offer) offer.textContent = ACCESS.whatYouGet;
+  pay.href = ACCESS.payUrl;
+  pay.setAttribute(
+    "target",
+    ACCESS.payUrl.startsWith("mailto:") ? "_self" : "_blank",
+  );
+  if (!ACCESS.payUrl.startsWith("mailto:")) {
+    pay.setAttribute("rel", "noopener noreferrer");
+  }
+
+  openBtn.addEventListener("click", () => {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  });
+}
+
 initGreeting();
 initChatListToggle();
 initSidebar();
+initAccess();
 initCoScientistLanding();

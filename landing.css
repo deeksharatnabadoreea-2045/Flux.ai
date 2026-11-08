@@ -419,11 +419,94 @@ button {
   letter-spacing: -0.02em;
 }
 
-/* Keeps the Flux name centered when the old user chip is gone */
-.main-header::after {
-  content: "";
-  width: 40px;
+.access-open {
   flex-shrink: 0;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--ink);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.access-open:hover {
+  background: #2a2a2a;
+}
+
+.access-dialog {
+  width: min(92vw, 360px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  color: var(--ink);
+}
+
+.access-dialog::backdrop {
+  background: rgba(17, 17, 17, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.access-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.35rem 1.25rem 1.2rem;
+}
+
+.access-panel h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.access-offer {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.access-price {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.access-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.access-pay:hover {
+  background: #2a2a2a;
+}
+
+.access-close {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.access-close:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
 }
 
 .user-chip {
