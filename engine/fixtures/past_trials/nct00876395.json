@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "trial_id": "NCT00876395",
+  "title": "Everolimus with trastuzumab and paclitaxel in HER2-positive advanced breast cancer (BOLERO-1)",
+  "indication": "HER2-positive locally advanced or metastatic breast cancer",
+  "phase": "Phase 3",
+  "primary_endpoint": "Progression-free survival (PFS) in the full study population",
+  "actual_outcome": "fail",
+  "actual_notes": "Primary PFS in the full population was not statistically significant (investigator-assessed log-rank p=0.1166 on ClinicalTrials.gov results).",
+  "source_url": "https://clinicaltrials.gov/study/NCT00876395",
+  "guess": {
+    "disease": "oncology_solid",
+    "seed": 7,
+    "n_candidates": 6,
+    "cohort_n": 10,
+    "phase1_n": 4,
+    "phase2_n": 6,
+    "phase3_n": 12
+  }
+}
