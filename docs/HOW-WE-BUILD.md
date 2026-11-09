@@ -33,9 +33,17 @@ We build in layers. Small useful thing first.
 1. **This page** — shared goal and rules — **done**.
 2. **First product people can use** — simple Flux chat — **done**.
 3. **Money path** — Get access / Pay on the chat page — **paused for now** (basic path is live; no Stripe or extra pay work until you say so).
-4. **Science engine, one step at a time** — start with one kind of trial, check it against past real results, then widen — **next**.
+4. **Science engine, one step at a time** — start with one kind of trial, check it against past real results, then widen — **in progress**.
 5. **Self-improvement with a human gate** — the system suggests upgrades; you approve before anything changes.
 6. **Design polish every round** — each version should feel simpler, calmer, and better.
+
+### Science step 1 (done)
+
+Tiny **“did we guess right?”** checker:
+
+- Fixture: finished real trial **NCT00876395** (BOLERO-1 breast cancer; primary PFS in the full population **fail**)
+- Code: `python3 -m engine.past_trial_check` (or `--self-test` / `--json`)
+- Prints **MATCH** or **MISS** — no claim that guesses are good yet
 
 ## What “good progress” looks like
 
@@ -49,13 +57,6 @@ After each approved step, you should be able to answer yes to at least one of th
 
 ## Next step (needs your yes / no / change)
 
-**First science step:** a tiny “did we guess right?” checker.
+**Science step 2:** add a second finished real trial fixture and report a simple hit rate (matches / total).
 
-- Pick **one** finished real trial (saved as a small fixture file).
-- Write what really happened (main result: success or fail).
-- Run our computer trial guess against that file.
-- Print a plain score: match or miss.
-
-No new claims. No pay work. Just proof we can score a guess against a real past trial.
-
-You say **yes**, **no**, or **change this** before I build.
+Or tell me a different next step.
