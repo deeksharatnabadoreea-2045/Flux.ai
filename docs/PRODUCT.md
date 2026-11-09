@@ -10,10 +10,12 @@ A **chatbot** that acts like a lab partner:
 
 ## What you charge for
 
-Paid **agent** access—not simulation supercomputers yet:
+Paid **agent** access is the long-term money path—not simulation supercomputers yet:
 
 - Per report, per seat, or monthly bundle of briefs
 - 24/7 watch on linked sites (e.g. ClinicalTrials.gov)
+
+**Status:** money path is **paused for now**. A basic Get access / Pay panel stays on chat; no further pay work until the founder unpauses it. Build focus is the science engine (see [HOW-WE-BUILD.md](./HOW-WE-BUILD.md)).
 
 ## What we build underneath
 

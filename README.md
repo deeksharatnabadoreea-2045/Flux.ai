@@ -1,6 +1,6 @@
 # Flux.ai
 
-**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Monetize:** paid agent access now; heavy bio simulation later.
+**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Money path:** paused for now (basic Get access stays). **Next build focus:** science engine — check computer-trial guesses against past real results.
 
 **Engine (long-term):** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—built under the co-pilot as proof and tiers improve.
 

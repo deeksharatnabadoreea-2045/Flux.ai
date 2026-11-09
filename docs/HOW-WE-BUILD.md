@@ -30,10 +30,10 @@ Build a platform that:
 
 We build in layers. Small useful thing first.
 
-1. **This page** — shared goal and rules (done when you accept this file).
-2. **First product people can use** — likely a simple chat a scientist (or anyone) can talk to.
-3. **Money path** — clear paid access so Flux is a business, not only a dream.
-4. **Science engine, one step at a time** — start with one kind of trial, check it against past real results, then widen to more kinds of trials.
+1. **This page** — shared goal and rules — **done**.
+2. **First product people can use** — simple Flux chat — **done**.
+3. **Money path** — Get access / Pay on the chat page — **paused for now** (basic path is live; no Stripe or extra pay work until you say so).
+4. **Science engine, one step at a time** — start with one kind of trial, check it against past real results, then widen — **next**.
 5. **Self-improvement with a human gate** — the system suggests upgrades; you approve before anything changes.
 6. **Design polish every round** — each version should feel simpler, calmer, and better.
 
@@ -47,7 +47,15 @@ After each approved step, you should be able to answer yes to at least one of th
 - Did the product feel nicer to use?
 - Did the system suggest a useful upgrade that you could approve or reject?
 
-## Next step after this page
+## Next step (needs your yes / no / change)
 
-I will propose the first real product step (what people open and use).  
-You approve, change, or reject it before I build.
+**First science step:** a tiny “did we guess right?” checker.
+
+- Pick **one** finished real trial (saved as a small fixture file).
+- Write what really happened (main result: success or fail).
+- Run our computer trial guess against that file.
+- Print a plain score: match or miss.
+
+No new claims. No pay work. Just proof we can score a guess against a real past trial.
+
+You say **yes**, **no**, or **change this** before I build.
