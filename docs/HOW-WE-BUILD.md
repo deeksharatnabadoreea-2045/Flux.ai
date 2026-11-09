@@ -39,11 +39,17 @@ We build in layers. Small useful thing first.
 
 ### Science step 1 (done)
 
-Tiny **“did we guess right?”** checker:
+Tiny **“did we guess right?”** checker for one finished real trial.
 
-- Fixture: finished real trial **NCT00876395** (BOLERO-1 breast cancer; primary PFS in the full population **fail**)
-- Code: `python3 -m engine.past_trial_check` (or `--self-test` / `--json`)
-- Prints **MATCH** or **MISS** — no claim that guesses are good yet
+### Science step 2 (done)
+
+Second fixture + simple hit rate:
+
+- **NCT00876395** (BOLERO-1) — primary PFS full population **fail**
+- **NCT01642004** (CheckMate 017) — primary OS **success**
+- Run: `python3 -m engine.past_trial_check` (all fixtures + hit rate)
+- Also: `--fixture path.json`, `--json`, `--self-test`
+- Prints **MATCH** / **MISS** and **matches / total** — no claim guesses are good yet
 
 ## What “good progress” looks like
 
@@ -57,6 +63,6 @@ After each approved step, you should be able to answer yes to at least one of th
 
 ## Next step (needs your yes / no / change)
 
-**Science step 2:** add a second finished real trial fixture and report a simple hit rate (matches / total).
+**Science step 3:** one more finished real trial (third fixture) **or** a short plain-English report file the checker writes after each run.
 
 Or tell me a different next step.

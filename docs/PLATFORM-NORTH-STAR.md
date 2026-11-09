@@ -50,7 +50,7 @@ Briefs that mention simulation, in-silico, trials, or validation auto-route towa
 - **Agents** = 24/7 workers that file structured outputs you approve.
 - **North star** = what those files must eventually converge on—validated in-silico trials—not chat or generic “AI.”
 
-Validation harness v0 lives at `engine/past_trial_check.py` with fixture `engine/fixtures/past_trials/nct00876395.json` (BOLERO-1). Next concrete build steps: more past-trial fixtures, hit-rate reporting, then a single indication pilot with fuller L1 retrospective replay.
+Validation harness v0 lives at `engine/past_trial_check.py` with fixtures under `engine/fixtures/past_trials/` (BOLERO-1 fail + CheckMate 017 success) and hit-rate reporting (`matches / total`). Next concrete build steps: more past-trial fixtures, then a single indication pilot with fuller L1 retrospective replay.
 
 ## Linked websites (24/7)
 

@@ -1,6 +1,6 @@
 # Flux.ai
 
-**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Money path:** paused for now (basic Get access stays). **Science:** past-trial match/miss checker — `python3 -m engine.past_trial_check` (see [HOW-WE-BUILD.md](docs/HOW-WE-BUILD.md)).
+**Product:** [Scientist co-pilot](docs/PRODUCT.md)—a chatbot backed by 24/7 desk agents (trial research, plans, metrics). **Money path:** paused for now (basic Get access stays). **Science:** past-trial match/miss + hit rate — `python3 -m engine.past_trial_check` (see [HOW-WE-BUILD.md](docs/HOW-WE-BUILD.md)).
 
 **Engine (long-term):** [in-silico human trials](docs/PLATFORM-NORTH-STAR.md)—built under the co-pilot as proof and tiers improve.
 

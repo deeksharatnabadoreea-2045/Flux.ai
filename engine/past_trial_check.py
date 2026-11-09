@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Past-trial match/miss checker for Flux (science engine, step 1).
+"""Past-trial match/miss checker for Flux (science engine).
 
 Plain English
 -------------
-We keep one finished real trial in a fixture file (what really happened).
-We run our computer-trial guess, then print MATCH or MISS.
+We keep finished real trials in fixture files (what really happened).
+We run our computer-trial guess for each, then print MATCH or MISS and a
+simple hit rate (matches / total).
 
-This does **not** claim our guess is good yet. It only proves we can score
-a guess against a real past result.
+This does **not** claim our guesses are good yet. It only proves we can
+score guesses against real past results.
 
 Example::
 
-    python3 -m engine.past_trial_check
-    python3 -m engine.past_trial_check --json
+    python3 -m engine.past_trial_check --all
+    python3 -m engine.past_trial_check --fixture engine/fixtures/past_trials/nct01642004.json
+    python3 -m engine.past_trial_check --all --json
     python3 -m engine.past_trial_check --self-test
 """
 
@@ -21,9 +23,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -60,6 +62,26 @@ class CheckResult:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class HitRateReport:
+    """Simple matches / total across one or more fixtures."""
+
+    total: int
+    matches: int
+    misses: int
+    hit_rate: float
+    results: list[CheckResult] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "total": self.total,
+            "matches": self.matches,
+            "misses": self.misses,
+            "hit_rate": self.hit_rate,
+            "results": [r.as_dict() for r in self.results],
+        }
+
+
 def load_fixture(path: Path | str) -> dict[str, Any]:
     """Load and validate a past-trial fixture JSON file."""
     fixture_path = Path(path)
@@ -93,6 +115,21 @@ def score_guess(actual_outcome: str, guessed_outcome: str) -> str:
     if actual not in ALLOWED_OUTCOMES or guessed not in ALLOWED_OUTCOMES:
         raise ValueError("outcomes must be success|fail")
     return "match" if actual == guessed else "miss"
+
+
+def hit_rate(results: Sequence[CheckResult]) -> HitRateReport:
+    """Compute matches / total from scored fixtures."""
+    total = len(results)
+    matches = sum(1 for r in results if r.score == "match")
+    misses = total - matches
+    rate = (matches / total) if total else 0.0
+    return HitRateReport(
+        total=total,
+        matches=matches,
+        misses=misses,
+        hit_rate=rate,
+        results=list(results),
+    )
 
 
 def outcome_from_dossier(dossier: Any) -> str:
@@ -163,8 +200,18 @@ def check_fixture(
     )
 
 
+def check_fixtures(
+    paths: Sequence[Path | str],
+    *,
+    guess_fn: GuessFn | None = None,
+) -> HitRateReport:
+    """Score many fixtures and return a hit-rate report."""
+    results = [check_fixture(path, guess_fn=guess_fn) for path in paths]
+    return hit_rate(results)
+
+
 def print_result(result: CheckResult) -> None:
-    """Human-readable MATCH / MISS report."""
+    """Human-readable MATCH / MISS report for one trial."""
     label = "MATCH" if result.score == "match" else "MISS"
     print()
     print(f"Past trial check  {result.trial_id}")
@@ -181,15 +228,30 @@ def print_result(result: CheckResult) -> None:
     if result.notes:
         print(f"notes     : {result.notes}")
     print("=" * 56)
+
+
+def print_hit_rate(report: HitRateReport) -> None:
+    """Print each result plus matches / total."""
+    for result in report.results:
+        print_result(result)
+    pct = 100.0 * report.hit_rate
+    print()
+    print("Hit rate")
+    print("=" * 56)
+    print(f"matches   : {report.matches}")
+    print(f"misses    : {report.misses}")
+    print(f"total     : {report.total}")
+    print(f"hit rate  : {report.matches}/{report.total} ({pct:.0f}%)")
+    print("=" * 56)
     print(
-        "We only claim this score for this fixture. "
+        "We only claim these scores for these fixtures. "
         "We do not claim computer trials replace real ones."
     )
     print()
 
 
 def run_self_test() -> int:
-    """Verify fixture load + match/miss scoring without claiming accuracy."""
+    """Verify fixtures + match/miss + hit rate without claiming accuracy."""
     failures: list[str] = []
 
     if score_guess("fail", "fail") != "match":
@@ -199,37 +261,49 @@ def run_self_test() -> int:
     if score_guess("fail", "success") != "miss":
         failures.append("fail/success should miss")
 
-    fixture_path = DEFAULT_FIXTURE
-    if not fixture_path.exists():
-        failures.append(f"missing default fixture {fixture_path}")
+    fixtures = list_fixtures()
+    if len(fixtures) < 2:
+        failures.append(f"expected ≥2 fixtures, found {len(fixtures)}")
         print("SELF-TEST FAIL:", "; ".join(failures))
         return 1
 
-    fixture = load_fixture(fixture_path)
-    if fixture["trial_id"] != "NCT00876395":
-        failures.append("unexpected trial_id in default fixture")
-    if fixture["actual_outcome"] != "fail":
+    by_id = {load_fixture(p)["trial_id"]: load_fixture(p) for p in fixtures}
+    if "NCT00876395" not in by_id or by_id["NCT00876395"]["actual_outcome"] != "fail":
         failures.append("BOLERO-1 fixture should be actual_outcome=fail")
+    if "NCT01642004" not in by_id or by_id["NCT01642004"]["actual_outcome"] != "success":
+        failures.append("CheckMate 017 fixture should be actual_outcome=success")
 
-    matched = check_fixture(
-        fixture_path, guess_fn=lambda _f: "fail"
-    )
+    # Injected guesses: one match, one miss → hit rate 1/2
+    def inject(fixture: Mapping[str, Any]) -> str:
+        # Always guess "fail" → match BOLERO-1, miss CheckMate 017
+        return "fail"
+
+    injected = check_fixtures(fixtures, guess_fn=inject)
+    if injected.total != len(fixtures):
+        failures.append("injected report total mismatch")
+    if injected.matches != 1 or injected.misses != 1:
+        failures.append(
+            f"injected hit rate expected 1/2, got {injected.matches}/{injected.total}"
+        )
+    if abs(injected.hit_rate - 0.5) > 1e-9:
+        failures.append("injected hit_rate should be 0.5")
+
+    matched = check_fixture(DEFAULT_FIXTURE, guess_fn=lambda _f: "fail")
     if matched.score != "match":
         failures.append("injected correct guess should MATCH")
 
-    missed = check_fixture(
-        fixture_path, guess_fn=lambda _f: "success"
-    )
-    if missed.score != "miss":
-        failures.append("injected wrong guess should MISS")
-
-    # Live pipeline once — harness must return a score; accuracy not required.
-    live = check_fixture(fixture_path)
-    if live.score not in {"match", "miss"}:
-        failures.append("live check must return match|miss")
-    if live.guessed_outcome not in ALLOWED_OUTCOMES:
-        failures.append("live guess must be success|fail")
-    print_result(live)
+    # Live pipeline across all fixtures — harness must score; accuracy not required.
+    live = check_fixtures(fixtures)
+    if live.total != len(fixtures):
+        failures.append("live report total mismatch")
+    if not (0 <= live.matches <= live.total):
+        failures.append("live matches out of range")
+    for result in live.results:
+        if result.score not in {"match", "miss"}:
+            failures.append(f"{result.trial_id} missing match|miss")
+        if result.guessed_outcome not in ALLOWED_OUTCOMES:
+            failures.append(f"{result.trial_id} bad guess label")
+    print_hit_rate(live)
 
     if failures:
         print("SELF-TEST FAIL:")
@@ -238,27 +312,32 @@ def run_self_test() -> int:
         return 1
 
     print(
-        f"SELF-TEST OK  fixture={fixture['trial_id']}  "
-        f"live_score={live.score.upper()}  "
-        f"(match not required for pass)"
+        f"SELF-TEST OK  fixtures={live.total}  "
+        f"live_hit_rate={live.matches}/{live.total}  "
+        f"(hit rate not required for pass)"
     )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Score a computer-trial guess against one finished real trial."
+        description="Score computer-trial guesses against finished real trials."
     )
     parser.add_argument(
         "--fixture",
         type=Path,
-        default=DEFAULT_FIXTURE,
-        help=f"past-trial JSON (default: {DEFAULT_FIXTURE.name})",
+        default=None,
+        help="score only this past-trial JSON (default: all fixtures + hit rate)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="score every fixture and print hit rate (default when --fixture omitted)",
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help="print CheckResult as JSON",
+        help="print JSON (CheckResult or HitRateReport)",
     )
     parser.add_argument(
         "--self-test",
@@ -270,12 +349,29 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return run_self_test()
 
-    result = check_fixture(args.fixture)
+    # One fixture only when --fixture is set and --all is not.
+    if args.fixture is not None and not args.all:
+        result = check_fixture(args.fixture)
+        if args.json:
+            print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+        else:
+            print_result(result)
+            print(
+                "We only claim this score for this fixture. "
+                "We do not claim computer trials replace real ones."
+            )
+            print()
+        return 0
+
+    paths = list_fixtures()
+    if not paths:
+        print(f"No fixtures found under {FIXTURES_DIR}", file=sys.stderr)
+        return 1
+    report = check_fixtures(paths)
     if args.json:
-        print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+        print(json.dumps(report.as_dict(), indent=2, sort_keys=True))
     else:
-        print_result(result)
-    # Exit 0 whenever the harness ran; MATCH/MISS is the report, not a crash.
+        print_hit_rate(report)
     return 0
 
 

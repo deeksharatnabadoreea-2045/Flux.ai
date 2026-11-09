@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "trial_id": "NCT01642004",
+  "title": "Nivolumab vs docetaxel in previously treated advanced squamous NSCLC (CheckMate 017)",
+  "indication": "Squamous cell non-small cell lung cancer",
+  "phase": "Phase 3",
+  "primary_endpoint": "Overall survival (OS) in all randomized participants",
+  "actual_outcome": "success",
+  "actual_notes": "Primary OS endpoint met (investigator log-rank p=0.0002 on ClinicalTrials.gov results; nivolumab median OS 9.23 months vs docetaxel 6.01 months).",
+  "source_url": "https://clinicaltrials.gov/study/NCT01642004",
+  "guess": {
+    "disease": "oncology_solid",
+    "seed": 11,
+    "n_candidates": 6,
+    "cohort_n": 10,
+    "phase1_n": 4,
+    "phase2_n": 6,
+    "phase3_n": 12
+  }
+}
