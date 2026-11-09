@@ -1,7 +1,7 @@
 /**
  * Money path settings for Flux chat access.
- * Monetization work is paused for now — leave this as-is.
- * When you unpause and have a real pay link (for example from Stripe), put it in payUrl.
+ * UX and monetization ship together — keep offer copy clear when you change this.
+ * When you have a real pay link (for example from Stripe), put it in payUrl.
  */
 export const ACCESS = {
   priceText: "$29 per month",

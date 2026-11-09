@@ -15,7 +15,7 @@ Paid **agent** access is the long-term money path—not simulation supercomputer
 - Per report, per seat, or monthly bundle of briefs
 - 24/7 watch on linked sites (e.g. ClinicalTrials.gov)
 
-**Status:** money path is **paused for now**. A basic Get access / Pay panel stays on chat; no further pay work until the founder unpauses it. Build focus is the science engine (see [HOW-WE-BUILD.md](./HOW-WE-BUILD.md)).
+**Status:** money path is **active again**. From now on we build **UX and monetization together** (see [HOW-WE-BUILD.md](./HOW-WE-BUILD.md)). Basic Get access / Pay is live on chat; each product round should make access nicer and clearer to buy.
 
 ## What we build underneath
 
