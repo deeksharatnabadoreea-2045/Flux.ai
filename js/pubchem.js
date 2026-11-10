@@ -1,27 +1,33 @@
 /** PubChem PUG REST helpers for compound name lookups. */
 
 const PUBCHEM_PROPERTY_URL =
-  "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/MolecularFormula,MolecularWeight/JSON";
+  "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{query}/property/MolecularFormula,MolecularWeight/json";
 
 /**
  * Fetch MolecularFormula + MolecularWeight for a compound name.
- * @param {string} name
- * @returns {Promise<{ name: string, formula: string, molecularWeight: string, cid: number } | null>}
+ * @param {string} query
+ * @returns {Promise<{ name: string, formula: string, molecularWeight: string, cid: number }>}
  */
-export async function lookupMolecule(name) {
-  const trimmed = String(name ?? "").trim();
-  if (!trimmed) return null;
+export async function lookupMolecule(query) {
+  const trimmed = String(query ?? "").trim();
+  if (!trimmed) {
+    throw new Error("Enter a compound name to search.");
+  }
 
-  const url = PUBCHEM_PROPERTY_URL.replace("{name}", encodeURIComponent(trimmed));
+  const url = PUBCHEM_PROPERTY_URL.replace("{query}", encodeURIComponent(trimmed));
   const res = await fetch(url);
-  if (res.status === 404) return null;
+  if (res.status === 404) {
+    throw new Error(`No PubChem compound found for “${trimmed}”.`);
+  }
   if (!res.ok) {
-    throw new Error(`PubChem HTTP ${res.status}`);
+    throw new Error(`PubChem request failed (HTTP ${res.status}).`);
   }
 
   const data = await res.json();
   const props = data?.PropertyTable?.Properties?.[0];
-  if (!props?.MolecularFormula || props.MolecularWeight == null) return null;
+  if (!props?.MolecularFormula || props.MolecularWeight == null) {
+    throw new Error(`PubChem returned incomplete data for “${trimmed}”.`);
+  }
 
   return {
     name: trimmed,

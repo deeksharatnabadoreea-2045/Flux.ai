@@ -9,17 +9,20 @@ afterEach(() => {
 });
 
 test("lookupMolecule returns formula and weight from PubChem JSON", async () => {
-  globalThis.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      PropertyTable: {
-        Properties: [
-          { CID: 962, MolecularFormula: "H2O", MolecularWeight: "18.015" },
-        ],
-      },
-    }),
-  });
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /\/property\/MolecularFormula,MolecularWeight\/json$/);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        PropertyTable: {
+          Properties: [
+            { CID: 962, MolecularFormula: "H2O", MolecularWeight: "18.015" },
+          ],
+        },
+      }),
+    };
+  };
 
   const result = await lookupMolecule("water");
   assert.deepEqual(result, {
@@ -30,16 +33,19 @@ test("lookupMolecule returns formula and weight from PubChem JSON", async () => 
   });
 });
 
-test("lookupMolecule returns null for PubChem 404", async () => {
+test("lookupMolecule throws for PubChem 404", async () => {
   globalThis.fetch = async () => ({
     ok: false,
     status: 404,
     json: async () => ({}),
   });
 
-  assert.equal(await lookupMolecule("not-a-real-molecule-xyz"), null);
+  await assert.rejects(
+    () => lookupMolecule("not-a-real-molecule-xyz"),
+    /No PubChem compound found/,
+  );
 });
 
-test("lookupMolecule returns null for blank names", async () => {
-  assert.equal(await lookupMolecule("  "), null);
+test("lookupMolecule throws for blank names", async () => {
+  await assert.rejects(() => lookupMolecule("  "), /Enter a compound name/);
 });

@@ -52,17 +52,7 @@
                 <section class="hero">
                     <div class="sphere-logo" role="img" aria-label="Flux"></div>
                     <h1 class="hero-title" id="hero-greeting">Good Afternoon.</h1>
-                    <p class="hero-sub">Ask Flux anything. You decide what to keep.</p>
-                </section>
-
-                <section class="molecule-result is-hidden" id="molecule-result" aria-live="polite" aria-atomic="true">
-                    <p class="molecule-result-name" id="molecule-result-name"></p>
-                    <p class="molecule-result-meta" id="molecule-result-meta"></p>
-                    <p class="molecule-result-error is-hidden" id="molecule-result-error"></p>
-                </section>
-
-                <section class="cos-chat is-hidden" id="cos-chat" aria-label="Flux chat">
-                    <div class="cos-chat-thread" id="cos-chat-thread"></div>
+                    <p class="hero-sub">Search a compound. Formula and weight from PubChem.</p>
                 </section>
 
                 </div>
@@ -71,16 +61,31 @@
                     <form class="composer" id="composer-form">
                         <div class="composer-field">
                             <svg class="composer-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M5 3v2M19 19v2M3 5h2M19 19h2"/></svg>
-                            <label class="sr-only" for="composer-input">Search a molecule or ask anything</label>
-                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Search a molecule (e.g. water)…"></textarea>
+                            <label class="sr-only" for="composer-input">Compound name</label>
+                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Compound name (e.g. water, aspirin)…"></textarea>
                         </div>
                         <div class="composer-bottom">
                             <div class="composer-tools"></div>
-                            <button type="submit" class="send-btn" aria-label="Search">
+                            <button type="submit" class="send-btn" id="composer-submit" aria-label="Search">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                             </button>
                         </div>
                     </form>
+                    <section class="molecule-result is-hidden" id="molecule-result" aria-live="polite" aria-atomic="true">
+                        <p class="molecule-result-status is-hidden" id="molecule-result-status"></p>
+                        <p class="molecule-result-name is-hidden" id="molecule-result-name"></p>
+                        <dl class="molecule-result-props is-hidden" id="molecule-result-props">
+                            <div>
+                                <dt>Molecular Formula</dt>
+                                <dd id="molecule-result-formula"></dd>
+                            </div>
+                            <div>
+                                <dt>Molecular Weight</dt>
+                                <dd id="molecule-result-weight"></dd>
+                            </div>
+                        </dl>
+                        <p class="molecule-result-error is-hidden" id="molecule-result-error"></p>
+                    </section>
                 </div>
 
                 <footer class="landing-footer">
