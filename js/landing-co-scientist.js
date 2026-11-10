@@ -1,3 +1,5 @@
+import { lookupMolecule } from "./pubchem.js";
+
 const FEEDBACK_KEY = "flux.co-scientist.feedback.v1";
 
 let feedSnapshot = null;
@@ -131,16 +133,74 @@ async function sendChat(message) {
   }
 }
 
+function showMoleculeResult(molecule) {
+  const panel = document.getElementById("molecule-result");
+  const nameEl = document.getElementById("molecule-result-name");
+  const metaEl = document.getElementById("molecule-result-meta");
+  const errorEl = document.getElementById("molecule-result-error");
+  if (!panel || !nameEl || !metaEl || !errorEl) return;
+
+  panel.classList.remove("is-hidden");
+  errorEl.classList.add("is-hidden");
+  errorEl.textContent = "";
+  nameEl.textContent = molecule.name;
+  metaEl.textContent = `Formula ${molecule.formula} · Molecular weight ${molecule.molecularWeight}`;
+  document.querySelector(".hero")?.classList.add("is-compact");
+}
+
+function showMoleculeError(message) {
+  const panel = document.getElementById("molecule-result");
+  const nameEl = document.getElementById("molecule-result-name");
+  const metaEl = document.getElementById("molecule-result-meta");
+  const errorEl = document.getElementById("molecule-result-error");
+  if (!panel || !nameEl || !metaEl || !errorEl) return;
+
+  panel.classList.remove("is-hidden");
+  nameEl.textContent = "";
+  metaEl.textContent = "";
+  errorEl.textContent = message;
+  errorEl.classList.remove("is-hidden");
+  document.querySelector(".hero")?.classList.add("is-compact");
+}
+
+async function searchMolecule(name) {
+  try {
+    return await lookupMolecule(name);
+  } catch {
+    showMoleculeError("Could not reach PubChem. Check your connection and try again.");
+    return "error";
+  }
+}
+
+async function handleComposerSubmit(input) {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const molecule = await searchMolecule(text);
+  if (molecule === "error") return;
+  if (molecule) {
+    showMoleculeResult(molecule);
+    return;
+  }
+  sendChat(text);
+}
+
 function bindComposer() {
   const form = document.getElementById("composer-form");
   const input = document.getElementById("composer-input");
   if (!form || !input) return;
-  form.addEventListener("submit", (e) => {
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    sendChat(text);
-    input.value = "";
+    await handleComposerSubmit(input);
+  });
+
+  // Enter searches; Shift+Enter keeps a newline in the textarea.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    form.requestSubmit();
   });
 
   document.getElementById("cos-chat-thread")?.addEventListener("click", (event) => {
