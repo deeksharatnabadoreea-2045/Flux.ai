@@ -172,23 +172,35 @@ async function searchMolecule(name) {
   }
 }
 
+async function handleComposerSubmit(input) {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const molecule = await searchMolecule(text);
+  if (molecule === "error") return;
+  if (molecule) {
+    showMoleculeResult(molecule);
+    return;
+  }
+  sendChat(text);
+}
+
 function bindComposer() {
   const form = document.getElementById("composer-form");
   const input = document.getElementById("composer-input");
   if (!form || !input) return;
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = "";
+    await handleComposerSubmit(input);
+  });
 
-    const molecule = await searchMolecule(text);
-    if (molecule === "error") return;
-    if (molecule) {
-      showMoleculeResult(molecule);
-      return;
-    }
-    sendChat(text);
+  // Enter searches; Shift+Enter keeps a newline in the textarea.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    form.requestSubmit();
   });
 
   document.getElementById("cos-chat-thread")?.addEventListener("click", (event) => {
