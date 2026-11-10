@@ -51,11 +51,7 @@ npm run dev        # HQ + 24/7 agent pool (recommended)
 npm start          # static HQ only — no live pool
 ```
 
-Open http://127.0.0.1:4173 for the **AI Co-Scientist** landing (live PubMed · UniProt · AlphaFold feed + chat), or http://127.0.0.1:4173/hq.html for the company floor.
-
-Use `npm run dev` (not `npm start` alone) so `/api/co-scientist/*` proxies work locally. On Netlify, serverless functions serve the same routes.
-
-**Daily updates:** PubMed, UniProt, and AlphaFold are merged into a growing archive (`.flux/co-scientist-archive.json` locally; Netlify Blobs in production). Sync runs every 24h automatically (`@daily` scheduled function on Netlify; timer when `npm run dev` is up). Manual refresh: `npm run co-scientist:sync` or `POST /api/co-scientist/sync`.
+Open http://127.0.0.1:4173 for the landing (PubChem compound search), or http://127.0.0.1:4173/hq.html for the company floor.
 
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 

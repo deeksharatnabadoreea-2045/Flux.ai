@@ -15,13 +15,6 @@ import {
   syncLinkedSources,
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
-import {
-  forceDailyCoScientistSync,
-  getCoScientistFeed,
-  postCoScientistChat,
-  postCoScientistFeedback,
-} from "../js/co-scientist-server.mjs";
-import { DAILY_SYNC_MS } from "../js/co-scientist-archive.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -282,89 +275,6 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/api/co-scientist/sync") {
-    try {
-      const out = await forceDailyCoScientistSync(ROOT);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: true,
-          added: out.added ?? 0,
-          archiveSize: out.archive?.items?.length ?? 0,
-          lastDailySyncAt: out.archive?.lastDailySyncAt ?? null,
-        }),
-      );
-    } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: error instanceof Error ? error.message : "daily_sync_failed",
-        }),
-      );
-    }
-    return;
-  }
-
-  if (req.method === "GET" && url.pathname === "/api/co-scientist/feed") {
-    try {
-      const refresh = url.searchParams.get("refresh") === "1";
-      const feed = await getCoScientistFeed(ROOT, { refresh });
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, ...feed }));
-    } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: error instanceof Error ? error.message : "feed_failed",
-        }),
-      );
-    }
-    return;
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/co-scientist/chat") {
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    try {
-      const payload = JSON.parse(raw || "{}");
-      const out = await postCoScientistChat(ROOT, payload);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify(out));
-    } catch (error) {
-      const code = error instanceof Error && error.message === "message_required" ? 400 : 500;
-      res.writeHead(code, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: error instanceof Error ? error.message : "chat_failed",
-        }),
-      );
-    }
-    return;
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/co-scientist/feedback") {
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    try {
-      const payload = JSON.parse(raw || "{}");
-      const out = await postCoScientistFeedback(ROOT, payload);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify(out));
-    } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: error instanceof Error ? error.message : "feedback_failed",
-        }),
-      );
-    }
-    return;
-  }
-
   if (req.method === "GET" && url.pathname === "/api/agents/health") {
     const credentialed = hasCursorCredential();
     if (credentialed) startAgentsServe();
@@ -472,7 +382,6 @@ server.listen(HQ_PORT, "127.0.0.1", () => {
   console.log(`Agent pool     ${AGENTS_BASE} (multi; 24/7 root — patrol schedules on hosted deploy)`);
   console.log(`Health         http://127.0.0.1:${HQ_PORT}/api/agents/health`);
   console.log(`Linked sources http://127.0.0.1:${HQ_PORT}/api/linked-sources`);
-  console.log(`Co-Scientist  http://127.0.0.1:${HQ_PORT}/api/co-scientist/feed`);
   console.log(`Desks: ${AGENT_DESK_IDS.join(", ")}`);
   if (hasCursorCredential()) {
     startAgentsServe();
@@ -487,22 +396,6 @@ server.listen(HQ_PORT, "127.0.0.1", () => {
     setTimeout(() => maybeSyncLinkedSources("startup"), 12_000);
     setInterval(() => maybeSyncLinkedSources("interval"), SOURCE_SYNC_MS);
   }
-
-  const runCoScientistDaily = async (reason) => {
-    try {
-      const out = await forceDailyCoScientistSync(ROOT);
-      console.log(
-        `[co-scientist] daily sync (${reason}): +${out.added ?? 0} items, archive ${out.archive?.items?.length ?? 0}`,
-      );
-    } catch (error) {
-      console.warn(
-        `[co-scientist] daily sync failed (${reason}):`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  };
-  setTimeout(() => runCoScientistDaily("startup"), 8_000);
-  setInterval(() => runCoScientistDaily("interval"), DAILY_SYNC_MS);
 });
 
 process.on("SIGINT", () => {

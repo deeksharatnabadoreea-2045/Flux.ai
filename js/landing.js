@@ -1,5 +1,5 @@
 import { ACCESS } from "./access-config.js";
-import { initCoScientistLanding } from "./landing-co-scientist.js";
+import { initPubchemSearch } from "./landing-pubchem.js";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
@@ -88,4 +88,4 @@ initGreeting();
 initChatListToggle();
 initSidebar();
 initAccess();
-initCoScientistLanding();
+initPubchemSearch();

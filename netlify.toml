@@ -4,26 +4,3 @@
 
 [functions]
   node_bundler = "esbuild"
-
-[functions."co-scientist-daily"]
-  schedule = "@daily"
-
-[[redirects]]
-  from = "/api/co-scientist/feed"
-  to = "/.netlify/functions/co-scientist-feed"
-  status = 200
-
-[[redirects]]
-  from = "/api/co-scientist/chat"
-  to = "/.netlify/functions/co-scientist-chat"
-  status = 200
-
-[[redirects]]
-  from = "/api/co-scientist/feedback"
-  to = "/.netlify/functions/co-scientist-feedback"
-  status = 200
-
-[[redirects]]
-  from = "/api/co-scientist/sync"
-  to = "/.netlify/functions/co-scientist-daily"
-  status = 200
