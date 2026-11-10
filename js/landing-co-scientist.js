@@ -133,57 +133,60 @@ async function sendChat(message) {
   }
 }
 
-function showMoleculeResult(molecule) {
-  const panel = document.getElementById("molecule-result");
-  const nameEl = document.getElementById("molecule-result-name");
-  const metaEl = document.getElementById("molecule-result-meta");
-  const errorEl = document.getElementById("molecule-result-error");
-  if (!panel || !nameEl || !metaEl || !errorEl) return;
-
-  panel.classList.remove("is-hidden");
-  errorEl.classList.add("is-hidden");
-  errorEl.textContent = "";
-  nameEl.textContent = molecule.name;
-  metaEl.textContent = `Formula ${molecule.formula} · Molecular weight ${molecule.molecularWeight}`;
-  document.querySelector(".hero")?.classList.add("is-compact");
+function moleculeEls() {
+  return {
+    panel: document.getElementById("molecule-result"),
+    status: document.getElementById("molecule-result-status"),
+    name: document.getElementById("molecule-result-name"),
+    props: document.getElementById("molecule-result-props"),
+    formula: document.getElementById("molecule-result-formula"),
+    weight: document.getElementById("molecule-result-weight"),
+    error: document.getElementById("molecule-result-error"),
+    submit: document.getElementById("composer-submit"),
+    input: document.getElementById("composer-input"),
+  };
 }
 
-function showMoleculeError(message) {
-  const panel = document.getElementById("molecule-result");
-  const nameEl = document.getElementById("molecule-result-name");
-  const metaEl = document.getElementById("molecule-result-meta");
-  const errorEl = document.getElementById("molecule-result-error");
-  if (!panel || !nameEl || !metaEl || !errorEl) return;
+function setMoleculePanel({ loading = false, molecule = null, error = "" } = {}) {
+  const els = moleculeEls();
+  if (!els.panel) return;
 
-  panel.classList.remove("is-hidden");
-  nameEl.textContent = "";
-  metaEl.textContent = "";
-  errorEl.textContent = message;
-  errorEl.classList.remove("is-hidden");
-  document.querySelector(".hero")?.classList.add("is-compact");
-}
+  els.panel.classList.remove("is-hidden");
+  els.status?.classList.toggle("is-hidden", !loading);
+  els.name?.classList.toggle("is-hidden", !molecule);
+  els.props?.classList.toggle("is-hidden", !molecule);
+  els.error?.classList.toggle("is-hidden", !error);
 
-async function searchMolecule(name) {
-  try {
-    return await lookupMolecule(name);
-  } catch {
-    showMoleculeError("Could not reach PubChem. Check your connection and try again.");
-    return "error";
-  }
+  if (els.status) els.status.textContent = loading ? "Looking up PubChem…" : "";
+  if (els.name) els.name.textContent = molecule?.name ?? "";
+  if (els.formula) els.formula.textContent = molecule?.formula ?? "";
+  if (els.weight) els.weight.textContent = molecule?.molecularWeight ?? "";
+  if (els.error) els.error.textContent = error;
+
+  if (els.submit) els.submit.disabled = loading;
+  if (els.input) els.input.disabled = loading;
 }
 
 async function handleComposerSubmit(input) {
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
-
-  const molecule = await searchMolecule(text);
-  if (molecule === "error") return;
-  if (molecule) {
-    showMoleculeResult(molecule);
+  const query = input.value.trim();
+  if (!query) {
+    setMoleculePanel({ error: "Enter a compound name to search." });
     return;
   }
-  sendChat(text);
+
+  input.value = "";
+  setMoleculePanel({ loading: true });
+
+  try {
+    const molecule = await lookupMolecule(query);
+    setMoleculePanel({ molecule });
+  } catch (err) {
+    const message =
+      err instanceof TypeError
+        ? "Could not reach PubChem. Check your connection and try again."
+        : err?.message || "PubChem lookup failed.";
+    setMoleculePanel({ error: message });
+  }
 }
 
 function bindComposer() {
@@ -198,7 +201,7 @@ function bindComposer() {
 
   // Enter searches; Shift+Enter keeps a newline in the textarea.
   input.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.shiftKey) return;
+    if (e.key !== "Enter" || e.shiftKey || input.disabled) return;
     e.preventDefault();
     form.requestSubmit();
   });
