@@ -617,6 +617,45 @@ button {
   display: none;
 }
 
+.molecule-result {
+  position: relative;
+  z-index: 1;
+  margin: 0.35rem 1rem 0.75rem;
+  padding: 0.85rem 1rem;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.molecule-result.is-hidden {
+  display: none;
+}
+
+.molecule-result-name {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  text-transform: capitalize;
+}
+
+.molecule-result-meta {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.molecule-result-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.molecule-result-error.is-hidden {
+  display: none;
+}
+
 .cos-chat {
   padding: 0 1rem 0.25rem;
 }
