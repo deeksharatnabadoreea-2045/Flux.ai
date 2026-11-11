@@ -5,7 +5,7 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { join, extname, normalize } from "node:path";
+import { join, extname, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runPlaybook } from "../js/desks.js";
 import { materializeEvolution } from "./materialize-evolution.mjs";
@@ -15,8 +15,9 @@ import {
   syncLinkedSources,
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
+import { getIdentity } from "../cursor/identity.js";
 
-const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
+const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
 const AGENTS_PORT = Number(process.env.FLUX_AGENTS_PORT ?? 3000);
 const AGENTS_BASE = `http://127.0.0.1:${AGENTS_PORT}`;
@@ -180,12 +181,30 @@ async function runDeskAgent(deskId, brief, company, jobId, evolution = {}) {
   };
 }
 
+function isPathInsideRoot(filePath) {
+  const resolved = resolve(filePath);
+  return resolved === ROOT || resolved.startsWith(`${ROOT}${sep}`);
+}
+
 async function readStatic(pathname) {
-  const safe = normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, "");
-  let filePath = join(ROOT, safe === "/" ? "index.html" : safe);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  if (decoded.includes("\0")) return null;
+  // Absolute URL paths must not be passed to path.join as-is (join discards ROOT).
+  const stripped = normalize(decoded).replace(/^([/\\])+/, "").replace(/^(\.\.([/\\]|$))+/, "");
+  const rel = !stripped || stripped === "." ? "index.html" : stripped;
+  let filePath = resolve(ROOT, rel);
+  if (!isPathInsideRoot(filePath)) return null;
   try {
     const info = await stat(filePath);
-    if (info.isDirectory()) filePath = join(filePath, "index.html");
+    if (info.isDirectory()) {
+      filePath = resolve(filePath, "index.html");
+      if (!isPathInsideRoot(filePath)) return null;
+    }
   } catch {
     return null;
   }
@@ -197,8 +216,40 @@ async function readStatic(pathname) {
   }
 }
 
+async function requireApiViewer(req, res) {
+  const identity = await getIdentity(req);
+  if (!identity.verified) {
+    res.writeHead(401, {
+      "content-type": "application/json",
+      "cache-control": "private, no-store",
+    });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: "unauthorized",
+        reason: identity.reason ?? "missing_identity",
+      }),
+    );
+    return null;
+  }
+  return identity;
+}
+
+function jsonHeaders(extra = {}) {
+  return {
+    "content-type": "application/json",
+    "cache-control": "private, no-store",
+    ...extra,
+  };
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+
+  if (url.pathname.startsWith("/api/")) {
+    const identity = await requireApiViewer(req, res);
+    if (!identity) return;
+  }
 
   if (req.method === "POST" && url.pathname === "/api/evolution/materialize") {
     let raw = "";
@@ -206,10 +257,10 @@ const server = createServer(async (req, res) => {
     try {
       const payload = JSON.parse(raw || "{}");
       const out = await materializeEvolution(payload.applied ?? []);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, jsonHeaders());
       res.end(JSON.stringify({ ok: true, ...out }));
     } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
+      res.writeHead(500, jsonHeaders());
       res.end(
         JSON.stringify({
           ok: false,
@@ -230,7 +281,7 @@ const server = createServer(async (req, res) => {
     } catch {
       /* no sync yet */
     }
-    res.writeHead(200, { "content-type": "application/json" });
+    res.writeHead(200, jsonHeaders());
     res.end(JSON.stringify({ ok: true, config, manifest }));
     return;
   }
@@ -244,16 +295,18 @@ const server = createServer(async (req, res) => {
         version: 1,
         sources: payload.sources ?? [],
       });
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, jsonHeaders());
       res.end(JSON.stringify({ ok: true, config }));
     } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: error instanceof Error ? error.message : "save_failed",
-        }),
-      );
+      const message = error instanceof Error ? error.message : "save_failed";
+      const clientError = [
+        "invalid_url",
+        "invalid_scheme",
+        "credentials_forbidden",
+        "blocked_host",
+      ].includes(message);
+      res.writeHead(clientError ? 400 : 500, jsonHeaders());
+      res.end(JSON.stringify({ ok: false, error: message }));
     }
     return;
   }
@@ -261,10 +314,10 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/linked-sources/sync") {
     try {
       const manifest = await syncLinkedSources(ROOT);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, jsonHeaders());
       res.end(JSON.stringify({ ok: true, manifest }));
     } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
+      res.writeHead(500, jsonHeaders());
       res.end(
         JSON.stringify({
           ok: false,
@@ -282,16 +335,16 @@ const server = createServer(async (req, res) => {
     let agents = [];
     if (ready) {
       try {
-        const res = await fetch(`${AGENTS_BASE}/v1/agents`);
-        if (res.ok) {
-          const payload = await res.json();
+        const agentRes = await fetch(`${AGENTS_BASE}/v1/agents`);
+        if (agentRes.ok) {
+          const payload = await agentRes.json();
           agents = payload.agents ?? payload ?? [];
         }
       } catch {
         /* pool not up */
       }
     }
-    res.writeHead(200, { "content-type": "application/json" });
+    res.writeHead(200, jsonHeaders());
     res.end(
       JSON.stringify({
         ok: true,
@@ -329,15 +382,15 @@ const server = createServer(async (req, res) => {
       const evolution = payload.evolution ?? {};
       const jobId = payload.jobId ?? "";
       if (!brief) {
-        res.writeHead(400, { "content-type": "application/json" });
+        res.writeHead(400, jsonHeaders());
         res.end(JSON.stringify({ ok: false, error: "brief_required" }));
         return;
       }
       const result = await runDeskAgent(deskId, brief, company, jobId, evolution);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, jsonHeaders());
       res.end(JSON.stringify({ ok: true, ...result }));
     } catch (error) {
-      res.writeHead(500, { "content-type": "application/json" });
+      res.writeHead(500, jsonHeaders());
       res.end(
         JSON.stringify({
           ok: false,

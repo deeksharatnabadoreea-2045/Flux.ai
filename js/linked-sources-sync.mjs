@@ -4,6 +4,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { emptyLinkedSourcesConfig, mergeSourcesConfig } from "./linked-sources.js";
+import { parsePublicHttpUrl, safeFetch } from "./url-safety.mjs";
 
 const MAX_BYTES = 512_000;
 const EXCERPT_CHARS = 24_000;
@@ -30,6 +31,9 @@ export async function writeLinkedSourcesConfig(repoRoot, config) {
   const { configPath } = repoPaths(repoRoot);
   await mkdir(join(repoRoot, "config"), { recursive: true });
   const body = mergeSourcesConfig(config, config.sources);
+  for (const source of body.sources) {
+    parsePublicHttpUrl(source.url);
+  }
   await writeFile(configPath, `${JSON.stringify(body, null, 2)}\n`, "utf8");
   return body;
 }
@@ -49,13 +53,13 @@ function titleFromHtml(html) {
 }
 
 export async function fetchOneSource(source, { signal } = {}) {
-  const res = await fetch(source.url, {
+  parsePublicHttpUrl(source.url);
+  const res = await safeFetch(source.url, {
     signal,
     headers: {
       "user-agent": "Flux.ai-SourceWatch/1.0 (+in-silico research)",
       accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
     },
-    redirect: "follow",
   });
   const buf = Buffer.from(await res.arrayBuffer());
   const clipped = buf.subarray(0, MAX_BYTES);
