@@ -23,7 +23,7 @@
 html,
 body {
   margin: 0;
-  height: auto;
+  height: 100%;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -67,7 +67,7 @@ button {
 
 .mast {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr auto;
   gap: 1rem 2rem;
   align-items: end;
   padding: 1rem 1.25rem 0.85rem;
@@ -92,7 +92,7 @@ button {
 
 .mast-meta {
   margin: 0;
-  text-align: left;
+  text-align: right;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   letter-spacing: 0.02em;
@@ -103,10 +103,9 @@ button {
 }
 
 .floor {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  height: auto;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) minmax(280px, 420px);
   min-height: 0;
   border-top: 1px solid var(--rule);
 }
@@ -114,15 +113,15 @@ button {
 .rail,
 .file-pane {
   background: var(--paper-2);
-  border: 0;
-  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
   padding: 1rem 0.9rem 1.25rem;
-  overflow: visible;
+  overflow: auto;
   min-height: 0;
-  max-height: none;
 }
 
 .file-pane {
+  border-right: 0;
+  border-left: 1px solid var(--rule);
   background: var(--paper);
 }
 
@@ -131,8 +130,6 @@ button {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  max-height: none;
-  overflow: visible;
 }
 
 .kicker {
@@ -391,7 +388,7 @@ select {
 }
 
 .board {
-  flex: none;
+  flex: 1;
   overflow: auto;
   padding: 0.35rem 0;
   min-height: 0;
@@ -557,6 +554,49 @@ select {
 
 .log li + li {
   margin-top: 0.55rem;
+}
+
+/* —— Mobile / narrow: stack the floor —— */
+@media (max-width: 960px) {
+  html,
+  body {
+    height: auto;
+  }
+
+  .floor {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    height: auto;
+    min-height: 0;
+  }
+
+  .rail,
+  .work,
+  .file-pane {
+    overflow: visible;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .board {
+    flex: none;
+    min-height: 0;
+  }
+
+  .rail,
+  .file-pane {
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .mast {
+    grid-template-columns: 1fr;
+  }
+
+  .mast-meta {
+    text-align: left;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

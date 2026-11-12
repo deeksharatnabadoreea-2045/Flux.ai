@@ -36,6 +36,10 @@ function setSidebarOpen(open) {
   toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
 }
 
+function isMobileSidebar() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
 function initSidebar() {
   const toggle = document.getElementById("sidebar-toggle");
   const close = document.getElementById("sidebar-close");
@@ -44,6 +48,7 @@ function initSidebar() {
   if (!toggle || !sidebar) return;
 
   toggle.addEventListener("click", () => {
+    if (!isMobileSidebar()) return;
     const open = !sidebar.classList.contains("is-open");
     setSidebarOpen(open);
   });
@@ -51,12 +56,24 @@ function initSidebar() {
   scrim?.addEventListener("click", () => setSidebarOpen(false));
 
   sidebar.querySelectorAll(".nav-item").forEach((el) => {
-    el.addEventListener("click", () => setSidebarOpen(false));
+    el.addEventListener("click", () => {
+      if (isMobileSidebar()) setSidebarOpen(false);
+    });
   });
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") setSidebarOpen(false);
   });
+
+  const desktopMq = window.matchMedia("(min-width: 901px)");
+  const onViewportChange = () => {
+    if (desktopMq.matches) setSidebarOpen(false);
+  };
+  if (typeof desktopMq.addEventListener === "function") {
+    desktopMq.addEventListener("change", onViewportChange);
+  } else {
+    desktopMq.addListener(onViewportChange);
+  }
 }
 
 function initAccess() {
