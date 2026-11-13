@@ -51,7 +51,7 @@ npm run dev        # HQ + 24/7 agent pool (recommended)
 npm start          # static HQ only — no live pool
 ```
 
-Open http://127.0.0.1:4173 for the landing (PubChem compound search), or http://127.0.0.1:4173/hq.html for the company floor.
+Open http://127.0.0.1:4173 for the landing (human molecule search — PubChem properties, ChEBI/HMDB occurrence gate), or http://127.0.0.1:4173/hq.html for the company floor.
 
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 
