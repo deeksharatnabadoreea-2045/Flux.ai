@@ -34,6 +34,11 @@ export function deskRecursiveEnabled(agents, deskId) {
   return agents?.[deskId]?.recursive !== false;
 }
 
+/** Desk ids configured for live Agent SDK workers (parallel briefs fan out here). */
+export function liveAgentDeskIds(agents, deskIds = AGENT_DESK_IDS) {
+  return deskIds.filter((id) => deskUsesLiveAgent(agents, id));
+}
+
 export function agentChannelUrl(baseUrl, deskId) {
   return `${baseUrl.replace(/\/$/, "")}/${deskId}/v1/channels/floor/brief`;
 }

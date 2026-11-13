@@ -16,6 +16,8 @@ npm run dev
 # Multi-agent pool http://127.0.0.1:3000/{desk}/…
 ```
 
+Each desk is a **separate hosted worker**. Patrol schedules fire **in parallel** (same UTC cron on every desk). Briefs to different desks run concurrently; use HQ **All live desks (parallel)** or `POST /api/briefs/parallel` to fan one brief out.
+
 Patrol schedules do **not** auto-fire under `serve --dev`. Trigger one manually:
 
 ```bash
