@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js",
+    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js js/human-molecule.test.js",
     "sources:sync": "node -e \"import('./js/linked-sources-sync.mjs').then(m=>m.syncLinkedSources('.')).then(x=>console.log(JSON.stringify(x,null,2)))\"",
     "agents:validate": "node scripts/deploy-all-desks.mjs",
     "agents:heartbeats": "node scripts/sync-desk-heartbeats.mjs",

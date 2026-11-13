@@ -52,7 +52,7 @@
                 <section class="hero">
                     <div class="sphere-logo" role="img" aria-label="Flux"></div>
                     <h1 class="hero-title" id="hero-greeting">Good Afternoon.</h1>
-                    <p class="hero-sub">Search a compound. Formula and weight from PubChem.</p>
+                    <p class="hero-sub">Search molecules that naturally occur in the human body. Properties from PubChem; occurrence verified via ChEBI and HMDB.</p>
                 </section>
 
                 </div>
@@ -62,7 +62,7 @@
                         <div class="composer-field">
                             <svg class="composer-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M5 3v2M19 19v2M3 5h2M19 19h2"/></svg>
                             <label class="sr-only" for="composer-input">Compound name</label>
-                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Compound name (e.g. water, aspirin)…"></textarea>
+                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Human molecule (e.g. water, glucose, urea)…"></textarea>
                         </div>
                         <div class="composer-bottom">
                             <div class="composer-tools"></div>
@@ -82,6 +82,10 @@
                             <div>
                                 <dt>Molecular Weight</dt>
                                 <dd id="molecule-result-weight"></dd>
+                            </div>
+                            <div>
+                                <dt>Human evidence</dt>
+                                <dd id="molecule-result-evidence"></dd>
                             </div>
                         </dl>
                         <p class="molecule-result-error is-hidden" id="molecule-result-error"></p>
