@@ -18,6 +18,8 @@
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
   --desktop-sidebar: 260px;
   --mobile-sidebar: min(288px, 86vw);
+  /* Optimal reading measure (~45–75ch); ~max-w-3xl on large screens */
+  --reading-max: min(48rem, 72ch);
 }
 
 *,
@@ -344,9 +346,18 @@ button {
 
 .main-scroll {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Chat/text blocks stay in a centered readable column */
+.main-scroll > * {
+  width: 100%;
+  max-width: var(--reading-max);
 }
 
 .main::before {
@@ -541,7 +552,7 @@ button {
 
 .hero-title {
   margin: 0 0 0.75rem;
-  max-width: 520px;
+  max-width: var(--reading-max);
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 3.5vw, 2.35rem);
   font-weight: 400;
@@ -551,7 +562,7 @@ button {
 
 .hero-sub {
   margin: 0;
-  max-width: 480px;
+  max-width: var(--reading-max);
   font-size: 0.88rem;
   color: var(--ink-soft);
   line-height: 1.55;
@@ -655,7 +666,7 @@ button {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   flex-shrink: 0;
   width: 100%;
   max-width: none;
@@ -666,18 +677,18 @@ button {
 .composer-wrap > .composer,
 .composer-wrap > .molecule-result {
   width: 100%;
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
+  max-width: var(--reading-max);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .composer {
   width: 100%;
-  max-width: none;
+  max-width: var(--reading-max);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: none;
+  box-shadow: var(--shadow-soft);
   overflow: hidden;
 }
 
