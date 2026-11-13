@@ -1,6 +1,4 @@
-/** Landing compound search — PubChem properties + human-occurrence gate. */
-
-import { lookupMolecule } from "./pubchem.js";
+/** Landing molecule result panel — PubChem properties + human-occurrence evidence. */
 
 function moleculeEls() {
   return {
@@ -17,7 +15,8 @@ function moleculeEls() {
   };
 }
 
-function formatEvidence(molecule) {
+export function formatEvidence(molecule) {
+  if (molecule?.evidenceSummary) return molecule.evidenceSummary;
   const evidence = molecule?.humanEvidence;
   if (!evidence?.occursInHumans) return "";
 
@@ -48,20 +47,30 @@ function formatEvidence(molecule) {
   return parts.length ? parts.join(" · ") : "Verified via ChEBI/HMDB";
 }
 
-function setMoleculePanel({ loading = false, molecule = null, error = "" } = {}) {
+/**
+ * Update the molecule properties card under the composer.
+ * Used by conversational replies that include a PubChem hit.
+ */
+export function setMoleculePanel({ loading = false, molecule = null, error = "" } = {}) {
   const els = moleculeEls();
   if (!els.panel) return;
 
+  const showError = Boolean(error) && !molecule && !loading;
+  const showMolecule = Boolean(molecule) && !loading;
+
+  if (!loading && !showMolecule && !showError) {
+    els.panel.classList.add("is-hidden");
+    return;
+  }
+
   els.panel.classList.remove("is-hidden");
   els.status?.classList.toggle("is-hidden", !loading);
-  els.name?.classList.toggle("is-hidden", !molecule);
-  els.props?.classList.toggle("is-hidden", !molecule);
-  els.error?.classList.toggle("is-hidden", !error);
+  els.name?.classList.toggle("is-hidden", !showMolecule);
+  els.props?.classList.toggle("is-hidden", !showMolecule);
+  els.error?.classList.toggle("is-hidden", !showError);
 
   if (els.status) {
-    els.status.textContent = loading
-      ? "Looking up PubChem and verifying human occurrence…"
-      : "";
+    els.status.textContent = loading ? "Thinking…" : "";
   }
   if (els.name) els.name.textContent = molecule?.name ?? "";
   if (els.formula) els.formula.textContent = molecule?.formula ?? "";
@@ -71,44 +80,4 @@ function setMoleculePanel({ loading = false, molecule = null, error = "" } = {})
 
   if (els.submit) els.submit.disabled = loading;
   if (els.input) els.input.disabled = loading;
-}
-
-async function handleSearchSubmit(input) {
-  const query = input.value.trim();
-  if (!query) {
-    setMoleculePanel({ error: "Enter a compound name to search." });
-    return;
-  }
-
-  input.value = "";
-  setMoleculePanel({ loading: true });
-
-  try {
-    const molecule = await lookupMolecule(query);
-    setMoleculePanel({ molecule });
-  } catch (err) {
-    const message =
-      err instanceof TypeError
-        ? "Could not reach PubChem or evidence databases. Check your connection and try again."
-        : err?.message || "Molecule lookup failed.";
-    setMoleculePanel({ error: message });
-  }
-}
-
-export function initPubchemSearch() {
-  const form = document.getElementById("composer-form");
-  const input = document.getElementById("composer-input");
-  if (!form || !input) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    await handleSearchSubmit(input);
-  });
-
-  // Enter searches; Shift+Enter keeps a newline in the textarea.
-  input.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.shiftKey || input.disabled) return;
-    e.preventDefault();
-    form.requestSubmit();
-  });
 }
