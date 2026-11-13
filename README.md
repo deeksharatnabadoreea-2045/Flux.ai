@@ -51,7 +51,9 @@ npm run dev        # HQ + 24/7 agent pool (recommended)
 npm start          # static HQ only — no live pool
 ```
 
-Open http://127.0.0.1:4173 for the landing (human molecule search — PubChem properties, ChEBI/HMDB occurrence gate), or http://127.0.0.1:4173/hq.html for the company floor.
+Open http://127.0.0.1:4173 for the landing conversational assistant (Groq on the server via `GROQ_API_KEY`; PubChem molecule facts + ChEBI/HMDB gate), or http://127.0.0.1:4173/hq.html for the company floor.
+
+**Chat API:** `POST /api/chat` (Netlify Function + local `npm run dev`). The browser never sees `GROQ_API_KEY`.
 
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 

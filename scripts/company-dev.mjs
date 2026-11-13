@@ -16,6 +16,7 @@ import {
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
 import { getIdentity } from "../cursor/identity.js";
+import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -246,9 +247,37 @@ function jsonHeaders(extra = {}) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
-  if (url.pathname.startsWith("/api/")) {
+  // Public landing chat is open (GROQ_API_KEY stays server-side).
+  if (url.pathname.startsWith("/api/") && url.pathname !== "/api/chat") {
     const identity = await requireApiViewer(req, res);
     if (!identity) return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/chat") {
+    res.writeHead(200, jsonHeaders());
+    res.end(JSON.stringify(chatHealth()));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/chat") {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    try {
+      const payload = JSON.parse(raw || "{}");
+      const result = await handleScienceChat(payload);
+      const status = result.status ?? (result.ok ? 200 : 500);
+      res.writeHead(status, jsonHeaders());
+      res.end(JSON.stringify(result));
+    } catch (error) {
+      res.writeHead(500, jsonHeaders());
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: error instanceof Error ? error.message : "chat_failed",
+        }),
+      );
+    }
+    return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/evolution/materialize") {

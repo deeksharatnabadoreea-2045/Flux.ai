@@ -1,5 +1,5 @@
 import { ACCESS } from "./access-config.js";
-import { initPubchemSearch } from "./landing-pubchem.js";
+import { initLandingChat } from "./landing-chat.js";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
@@ -105,4 +105,4 @@ initGreeting();
 initChatListToggle();
 initSidebar();
 initAccess();
-initPubchemSearch();
+initLandingChat();
