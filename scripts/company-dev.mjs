@@ -16,7 +16,7 @@ import {
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
 import { getIdentity } from "../cursor/identity.js";
-import { checkChatRateLimit } from "../js/chat-guard.mjs";
+import { checkChatRateLimit, validateChatPayload } from "../js/chat-guard.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
@@ -277,7 +277,13 @@ const server = createServer(async (req, res) => {
       for await (const chunk of req) raw += chunk;
       try {
         const payload = JSON.parse(raw || "{}");
-        const result = await handleScienceChat(payload);
+        const validated = validateChatPayload(payload);
+        if (!validated.ok) {
+          res.writeHead(400, jsonHeaders());
+          res.end(JSON.stringify({ ok: false, error: validated.error }));
+          return;
+        }
+        const result = await handleScienceChat(validated.value);
         const status = result.status ?? (result.ok ? 200 : 500);
         res.writeHead(status, jsonHeaders());
         res.end(JSON.stringify(result));
