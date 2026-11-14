@@ -39,7 +39,14 @@ const LOOKUP_TOOL = {
 };
 
 const GROQ_API_BASE = "https://api.groq.com/openai/v1";
-const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+/** Current Groq free/developer production id (llama-3.3-70b-versatile retired 2026-08-16). */
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
+/** Tried in order when Groq returns model_not_found / access errors for the preferred model. */
+export const GROQ_MODEL_FALLBACKS = [
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3.6-27b",
+];
 const MAX_HISTORY = 24;
 
 /**
@@ -48,14 +55,38 @@ const MAX_HISTORY = 24;
 export function resolveGroqConfig(env = process.env) {
   const apiKey = String(env.GROQ_API_KEY ?? "").trim();
   if (!apiKey) {
-    return { configured: false, apiKey: "", model: "", apiBase: GROQ_API_BASE };
+    return { configured: false, apiKey: "", model: "", apiBase: GROQ_API_BASE, modelCandidates: [] };
   }
+  const preferred = String(env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL).trim() || DEFAULT_GROQ_MODEL;
+  const modelCandidates = [
+    preferred,
+    ...GROQ_MODEL_FALLBACKS.filter((m) => m !== preferred),
+  ];
   return {
     configured: true,
     apiKey,
-    model: String(env.GROQ_MODEL ?? DEFAULT_GROQ_MODEL).trim() || DEFAULT_GROQ_MODEL,
+    model: preferred,
+    modelCandidates,
     apiBase: String(env.GROQ_API_BASE ?? GROQ_API_BASE).replace(/\/$/, ""),
   };
+}
+
+/**
+ * Log provider failures without leaking secrets or raw bodies.
+ * @param {unknown} err
+ * @param {{ model?: string }} [meta]
+ */
+export function logChatProviderFailure(err, meta = {}) {
+  const raw = err instanceof Error ? err.message : String(err ?? "");
+  const scrubbed = raw
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/gsk_[A-Za-z0-9]+/g, "[redacted]")
+    .replace(/sk-[A-Za-z0-9]+/g, "[redacted]")
+    .slice(0, 300);
+  console.error("[science-chat] provider_error", {
+    model: meta.model || null,
+    detail: scrubbed,
+  });
 }
 
 function normalizeMessages(messages) {
@@ -105,7 +136,14 @@ async function runLookupTool(name) {
   }
 }
 
-async function callGroq(config, body) {
+function isModelUnavailableError(err) {
+  const raw = err instanceof Error ? err.message : String(err ?? "");
+  return /model_not_found|does not exist|do not have access|deprecated|model.*unavailable/i.test(
+    raw,
+  );
+}
+
+async function callGroqOnce(config, body) {
   const res = await fetch(`${config.apiBase}/chat/completions`, {
     method: "POST",
     headers: {
@@ -123,9 +161,35 @@ async function callGroq(config, body) {
   }
   if (!res.ok) {
     const detail = data?.error?.message || data?.message || `HTTP ${res.status}`;
-    throw new Error(`Groq request failed: ${detail}`);
+    const code = data?.error?.code ? ` [${data.error.code}]` : "";
+    throw new Error(`Groq request failed: ${detail}${code}`);
   }
   return data;
+}
+
+/**
+ * Call Groq, falling back across model candidates when the preferred id is retired.
+ * @param {ReturnType<typeof resolveGroqConfig>} config
+ * @param {object} body
+ */
+async function callGroq(config, body) {
+  const candidates =
+    Array.isArray(config.modelCandidates) && config.modelCandidates.length
+      ? config.modelCandidates
+      : [config.model || DEFAULT_GROQ_MODEL];
+  let lastErr;
+  for (const model of candidates) {
+    try {
+      const data = await callGroqOnce(config, { ...body, model });
+      config.model = model;
+      return data;
+    } catch (err) {
+      lastErr = err;
+      logChatProviderFailure(err, { model });
+      if (!isModelUnavailableError(err)) throw err;
+    }
+  }
+  throw lastErr ?? new Error("Groq request failed: no model available");
 }
 
 function extractToolCalls(message) {
@@ -312,6 +376,7 @@ export async function handleScienceChat(input = {}) {
       result = await pubchemOnlyReply(latest, messages.slice(0, -1));
     }
   } catch (err) {
+    logChatProviderFailure(err, { model: config.model });
     const latest = messages[messages.length - 1]?.content ?? "";
     const fallback = await pubchemOnlyReply(latest, messages.slice(0, -1));
     result = {
