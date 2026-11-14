@@ -27,9 +27,11 @@ Hosting migration notes. This is not a product redesign.
 | Static site | `index.html`, `landing.css`, `js/*`, `hq.html`, … |
 | Chat route | `api/chat.js` — `export async function GET/POST(request)` |
 | Shared logic | `js/science-chat.mjs` (same as Netlify / local) |
+| Auth | Cursor sign-in via `requireIdentity` (private/team apps) |
+| Rate limit | Per-viewer window in `js/chat-guard.mjs` (Cursor Apps + local HQ) |
 | Secret | Bind **`GROQ_API_KEY`** in Cursor Apps / secure secrets |
 
-The browser only calls same-origin `POST /api/chat`. It never receives the key.
+The browser only calls same-origin `POST /api/chat`. It never receives the key. Netlify Function source is left unchanged during cutover.
 
 ## Cutover checklist
 
