@@ -53,7 +53,9 @@ npm start          # static HQ only — no live pool
 
 Open http://127.0.0.1:4173 for the landing conversational assistant (Groq on the server via `GROQ_API_KEY`; PubChem molecule facts + ChEBI/HMDB gate), or http://127.0.0.1:4173/hq.html for the company floor.
 
-**Chat API:** `POST /api/chat` (Netlify Function + local `npm run dev`). The browser never sees `GROQ_API_KEY`.
+**Chat API:** `POST /api/chat` — Cursor Apps route `api/chat.js`, Netlify Function `netlify/functions/chat.mjs` (kept), and local `npm run dev`. The browser never sees `GROQ_API_KEY`.
+
+**Cursor Apps hosting:** publish this repo folder with Cursor Apps. Bind secret `GROQ_API_KEY` in Cursor’s secure secrets / Apps dashboard. Optional non-secret: `GROQ_MODEL` (defaults to `llama-3.3-70b-versatile`). Existing Netlify config is retained until you cut over.
 
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 
