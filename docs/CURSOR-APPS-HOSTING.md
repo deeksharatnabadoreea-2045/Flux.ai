@@ -17,8 +17,8 @@ Hosting migration notes. This is not a product redesign.
 | Piece | Path |
 | --- | --- |
 | Config | `netlify.toml` (publish `.`, functions, `/api/chat` redirect) |
-| Function | `netlify/functions/chat.mjs` |
-| Env | `GROQ_API_KEY` (and optional `GROQ_MODEL`) in Netlify UI |
+| Function | `netlify/functions/chat.mjs` (same-origin + IP rate limit + payload validation) |
+| Env | `GROQ_API_KEY` (and optional `GROQ_MODEL`) in Netlify UI; optional `CHAT_ALLOWED_ORIGINS` |
 
 ## Cursor Apps (new)
 
@@ -31,7 +31,7 @@ Hosting migration notes. This is not a product redesign.
 | Rate limit | Per-viewer window in `js/chat-guard.mjs` (Cursor Apps + local HQ) |
 | Secret | Bind **`GROQ_API_KEY`** in Cursor Apps / secure secrets |
 
-The browser only calls same-origin `POST /api/chat`. It never receives the key. Netlify Function source is left unchanged during cutover.
+The browser only calls same-origin `POST /api/chat`. It never receives the key. Netlify’s function stays for cutover but rejects cross-site / scripted calls without a matching browser Origin, rate-limits by IP, and validates payloads before Groq.
 
 ## Cutover checklist
 

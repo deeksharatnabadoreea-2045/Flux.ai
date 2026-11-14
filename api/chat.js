@@ -3,11 +3,11 @@
  * Requires a verified Cursor app viewer (private/team sign-in).
  * GROQ_API_KEY stays in process.env (server only). Rate-limited per viewer.
  *
- * Netlify Function source (netlify/functions/chat.mjs) is intentionally unchanged.
+ * Netlify keeps a separate same-origin + rate-limited function for cutover.
  */
 
 import { requireIdentity } from "../cursor/identity.js";
-import { checkChatRateLimit } from "../js/chat-guard.mjs";
+import { checkChatRateLimit, validateChatPayload } from "../js/chat-guard.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 function json(status, body, extraHeaders = {}) {
@@ -49,8 +49,13 @@ export async function POST(request) {
     return json(400, { ok: false, error: "invalid_json" });
   }
 
+  const validated = validateChatPayload(payload ?? {});
+  if (!validated.ok) {
+    return json(400, { ok: false, error: validated.error });
+  }
+
   try {
-    const result = await handleScienceChat(payload ?? {});
+    const result = await handleScienceChat(validated.value);
     const { status, ...body } = result;
     return json(status ?? (body.ok ? 200 : 500), body);
   } catch {
