@@ -55,7 +55,7 @@ Open http://127.0.0.1:4173 for the landing conversational assistant (Groq on the
 
 **Chat API:** `POST /api/chat` — Cursor Apps route `api/chat.js` (signed-in viewer + rate limit), Netlify Function `netlify/functions/chat.mjs` (same-origin + IP rate limit + payload validation), and local `npm run dev`. The browser never sees `GROQ_API_KEY`.
 
-**Cursor Apps hosting:** publish this repo folder with Cursor Apps. Bind secret `GROQ_API_KEY` in Cursor’s secure secrets / Apps dashboard. Optional non-secret: `GROQ_MODEL` (defaults to `llama-3.3-70b-versatile`). Existing Netlify config is retained until you cut over.
+**Cursor Apps hosting:** publish this repo folder with Cursor Apps. Bind secret `GROQ_API_KEY` in Cursor’s secure secrets / Apps dashboard. Optional non-secret: `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`; falls back if a model id is retired). Existing Netlify config is retained until you cut over.
 
 Desks default to **Live agent** in HQ. Use **Playbook** per desk only when you want offline files.
 

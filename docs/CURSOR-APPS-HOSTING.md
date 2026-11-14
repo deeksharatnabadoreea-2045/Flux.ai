@@ -18,7 +18,7 @@ Hosting migration notes. This is not a product redesign.
 | --- | --- |
 | Config | `netlify.toml` (publish `.`, functions, `/api/chat` redirect) |
 | Function | `netlify/functions/chat.mjs` (same-origin + IP rate limit + payload validation) |
-| Env | `GROQ_API_KEY` (and optional `GROQ_MODEL`) in Netlify UI; optional `CHAT_ALLOWED_ORIGINS` |
+| Env | `GROQ_API_KEY` (and optional `GROQ_MODEL`, default `openai/gpt-oss-120b`) in Netlify UI; optional `CHAT_ALLOWED_ORIGINS` |
 
 ## Cursor Apps (new)
 

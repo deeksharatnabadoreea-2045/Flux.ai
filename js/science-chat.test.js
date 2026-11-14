@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import {
+  DEFAULT_GROQ_MODEL,
   resolveGroqConfig,
   pubchemOnlyReply,
   handleScienceChat,
@@ -8,22 +9,90 @@ import {
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.GROQ_API_KEY;
+const originalModel = process.env.GROQ_MODEL;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.GROQ_API_KEY;
   else process.env.GROQ_API_KEY = originalKey;
+  if (originalModel === undefined) delete process.env.GROQ_MODEL;
+  else process.env.GROQ_MODEL = originalModel;
 });
 
 test("resolveGroqConfig reads GROQ_API_KEY", () => {
-  const cfg = resolveGroqConfig({ GROQ_API_KEY: "gsk_test", GROQ_MODEL: "llama-3.1-8b-instant" });
+  const cfg = resolveGroqConfig({ GROQ_API_KEY: "gsk_test", GROQ_MODEL: "openai/gpt-oss-20b" });
   assert.equal(cfg.configured, true);
-  assert.equal(cfg.model, "llama-3.1-8b-instant");
+  assert.equal(cfg.model, "openai/gpt-oss-20b");
   assert.match(cfg.apiBase, /api\.groq\.com/);
+});
+
+test("resolveGroqConfig defaults to a current Groq production model", () => {
+  const cfg = resolveGroqConfig({ GROQ_API_KEY: "gsk_test" });
+  assert.equal(cfg.model, DEFAULT_GROQ_MODEL);
+  assert.equal(cfg.model, "openai/gpt-oss-120b");
+  assert.ok(cfg.modelCandidates.includes("openai/gpt-oss-20b"));
 });
 
 test("resolveGroqConfig is off without a key", () => {
   assert.equal(resolveGroqConfig({}).configured, false);
+});
+
+test("handleScienceChat falls back when preferred Groq model is retired", async () => {
+  process.env.GROQ_API_KEY = "gsk_test";
+  process.env.GROQ_MODEL = "llama-3.3-70b-versatile";
+  const modelsTried = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const href = String(url);
+    if (!href.includes("api.groq.com")) {
+      throw new Error(`unexpected fetch ${href}`);
+    }
+    const body = JSON.parse(options.body || "{}");
+    modelsTried.push(body.model);
+    if (body.model === "llama-3.3-70b-versatile") {
+      return {
+        ok: false,
+        status: 404,
+        text: async () =>
+          JSON.stringify({
+            error: {
+              message: "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.",
+              code: "model_not_found",
+            },
+          }),
+        json: async () => ({}),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content:
+                  "Glucose is your cells' main quick fuel — a sugar your body uses for energy.",
+              },
+            },
+          ],
+        }),
+      json: async () => ({}),
+    };
+  };
+
+  const result = await handleScienceChat({
+    messages: [{ role: "user", content: "Why does my body need glucose?" }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.groqConfigured, true);
+  assert.equal(result.model, "openai/gpt-oss-120b");
+  assert.match(result.reply, /quick fuel|energy/i);
+  assert.doesNotMatch(result.reply, /temporarily unavailable/i);
+  assert.deepEqual(modelsTried.slice(0, 2), [
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+  ]);
 });
 
 test("pubchemOnlyReply returns glucose facts without Groq", async () => {
