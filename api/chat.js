@@ -1,24 +1,47 @@
 /**
  * Cursor Apps chat route: GET/POST /api/chat
- * Uses Web Request/Response handlers. GROQ_API_KEY stays in process.env (server only).
+ * Requires a verified Cursor app viewer (private/team sign-in).
+ * GROQ_API_KEY stays in process.env (server only). Rate-limited per viewer.
  *
- * Netlify continues to use netlify/functions/chat.mjs — left intact during migration.
+ * Netlify Function source (netlify/functions/chat.mjs) is intentionally unchanged.
  */
 
+import { requireIdentity } from "../cursor/identity.js";
+import { checkChatRateLimit } from "../js/chat-guard.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
-function json(status, body) {
+function json(status, body, extraHeaders = {}) {
   return Response.json(body, {
     status,
-    headers: { "cache-control": "private, no-store" },
+    headers: { "cache-control": "private, no-store", ...extraHeaders },
   });
 }
 
-export async function GET() {
+async function requireViewer(request) {
+  const identity = await requireIdentity(request);
+  if (identity instanceof Response) return identity;
+  return identity;
+}
+
+export async function GET(request) {
+  const identity = await requireViewer(request);
+  if (identity instanceof Response) return identity;
   return json(200, chatHealth());
 }
 
 export async function POST(request) {
+  const identity = await requireViewer(request);
+  if (identity instanceof Response) return identity;
+
+  const rate = checkChatRateLimit(identity.sub || identity.userId || "viewer");
+  if (!rate.allowed) {
+    return json(
+      429,
+      { ok: false, error: "rate_limited", retryAfterSec: rate.retryAfterSec },
+      { "retry-after": String(rate.retryAfterSec) },
+    );
+  }
+
   let payload = {};
   try {
     payload = await request.json();
@@ -30,10 +53,7 @@ export async function POST(request) {
     const result = await handleScienceChat(payload ?? {});
     const { status, ...body } = result;
     return json(status ?? (body.ok ? 200 : 500), body);
-  } catch (error) {
-    return json(500, {
-      ok: false,
-      error: error instanceof Error ? error.message : "chat_failed",
-    });
+  } catch {
+    return json(500, { ok: false, error: "chat_failed" });
   }
 }

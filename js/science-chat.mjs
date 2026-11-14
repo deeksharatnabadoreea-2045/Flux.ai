@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { safeChatProviderError } from "./chat-guard.mjs";
 import { lookupMolecule } from "./pubchem.js";
 
 export const SYSTEM_PROMPT = `You are Flux, a friendly conversational science assistant about the human body and its molecules.
@@ -314,7 +315,7 @@ export async function handleScienceChat(input = {}) {
     const latest = messages[messages.length - 1]?.content ?? "";
     const fallback = await pubchemOnlyReply(latest, messages.slice(0, -1));
     result = {
-      reply: `${fallback.reply}\n\n(Groq error: ${err instanceof Error ? err.message : "request_failed"})`,
+      reply: `${fallback.reply}\n\n(${safeChatProviderError(err)})`,
       molecule: fallback.molecule,
     };
   }
