@@ -6,6 +6,7 @@ import {
   defaultAgentsConfig,
   defaultAgentDeskConfig,
   deskUsesLiveAgent,
+  liveAgentDeskIds,
 } from "./agent-desks.js";
 
 test("runtime root is always-on agents", () => {
@@ -24,4 +25,10 @@ test("every desk defaults to live agent mode", () => {
     assert.equal(agents[id].mode, "agent");
     assert.ok(deskUsesLiveAgent(agents, id));
   }
+});
+
+test("liveAgentDeskIds lists only desks in agent mode", () => {
+  const agents = defaultAgentsConfig();
+  agents.maker.mode = "playbook";
+  assert.deepEqual(liveAgentDeskIds(agents), AGENT_DESK_IDS.filter((id) => id !== "maker"));
 });

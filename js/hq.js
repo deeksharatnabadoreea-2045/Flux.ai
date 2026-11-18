@@ -5,6 +5,7 @@ import {
   AGENT_DESK_IDS,
   defaultAgentDeskConfig,
   deskUsesLiveAgent,
+  liveAgentDeskIds,
 } from "./agent-desks.js";
 import {
   buildForgeBriefFromJob,
@@ -87,6 +88,7 @@ function counts() {
 function liveRoute() {
   const brief = els.brief.value;
   const override = els.deskSelect.value;
+  if (override === "all-live") return "all-live";
   if (override !== "auto") return override;
   return routeBrief(brief);
 }
@@ -272,6 +274,14 @@ function renderAgentSettings() {
 
 function renderRouteHint() {
   const id = liveRoute();
+  if (id === "all-live") {
+    const n = liveAgentDeskIds(state.agents).length;
+    els.routeHint.textContent =
+      n > 0
+        ? `Will file the same brief to ${n} live desks in parallel. Each desk runs its own agent session.`
+        : "No desks in live agent mode — switch a desk to Live agent or use Auto-route.";
+    return;
+  }
   const desk = DESK_BY_ID[id];
   if (!desk) {
     els.routeHint.textContent = "";
@@ -430,6 +440,14 @@ function issueBrief(event) {
     return;
   }
   const deskId = liveRoute();
+  if (deskId === "all-live") {
+    const targets = liveAgentDeskIds(state.agents);
+    if (targets.length) {
+      for (const id of targets) void issueAgentBrief(brief, id);
+      els.brief.value = "";
+      return;
+    }
+  }
   if (deskUsesLiveAgent(state.agents, deskId)) {
     void issueAgentBrief(brief, deskId);
     els.brief.value = "";
@@ -462,6 +480,71 @@ function issueBrief(event) {
   runJob(job.id);
 }
 
+function applyAgentPayloadToJob(job, deskId, payload) {
+  const desk = DESK_BY_ID[deskId];
+  job.title = payload.title ?? job.title;
+  job.kind = payload.kind ?? job.kind;
+  job.source = payload.source ?? "agent";
+  if (payload.reason) job.agentNote = payload.reason;
+  job.steps = (payload.steps ?? job.steps).map((step) => ({ ...step, done: true }));
+  job.body = payload.body ?? payload.bodyMarkdown ?? "";
+  delete job._file;
+  delete job.agentSessionId;
+  delete job.agentPollIndex;
+  job.status = "filed";
+  if (job.deskId === "forge") {
+    job.kind = "proposal";
+    job.proposal = proposalFromForgeBody(job.body, {
+      id: newId("evo"),
+      sourceJobId: job.id,
+      title: job.title,
+    });
+  }
+  job.updatedAt = Date.now();
+  log(
+    `${payload.source === "agent" ? desk?.name + " agent" : desk?.name + " playbook"} filed: ${job.title}`,
+  );
+}
+
+function applyPlaybookFallbackToJob(job, deskId, brief, error) {
+  const desk = DESK_BY_ID[deskId];
+  const fallback = runPlaybook(deskId, brief, state.company, state.evolution);
+  job.title = fallback.title;
+  job.body = fallback.body;
+  job.kind = fallback.kind ?? job.kind;
+  job.status = "filed";
+  job.source = "playbook";
+  job.agentNote = error instanceof Error ? error.message : String(error ?? "agent_error");
+  job.steps = fallback.steps.map((step) => ({ ...step, done: true }));
+  delete job.agentSessionId;
+  delete job.agentPollIndex;
+  job.updatedAt = Date.now();
+  log(`${desk?.name ?? deskId} fell back to playbook: ${job.title}`);
+}
+
+async function pollAgentSessionForJob(job, deskId, sessionId, startIndex = 0) {
+  let index = startIndex;
+  while (true) {
+    const current = state.jobs.find((item) => item.id === job.id);
+    if (!current || current.runToken !== job.runToken) return;
+    const res = await fetch(
+      `/api/desk/${deskId}/session/${encodeURIComponent(sessionId)}?startIndex=${index}`,
+    );
+    const payload = await res.json();
+    if (!payload.ok) throw new Error(payload.error ?? "agent_poll_failed");
+    index = payload.nextIndex ?? index;
+    current.agentPollIndex = index;
+    persist();
+    if (payload.done) {
+      applyAgentPayloadToJob(current, deskId, payload);
+      persist();
+      render();
+      return;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 900));
+  }
+}
+
 async function issueAgentBrief(brief, deskId) {
   const desk = DESK_BY_ID[deskId];
   const playbook = runPlaybook(deskId, brief, state.company, state.evolution);
@@ -481,6 +564,8 @@ async function issueAgentBrief(brief, deskId) {
     updatedAt: Date.now(),
     _file: "",
     runToken: newId("run"),
+    agentSessionId: "",
+    agentPollIndex: 0,
   };
   state.jobs.unshift(job);
   state.selectedJobId = job.id;
@@ -490,7 +575,7 @@ async function issueAgentBrief(brief, deskId) {
   render();
   runJob(job.id, { agentFetch: true });
   try {
-    const res = await fetch(`/api/desk/${deskId}`, {
+    const res = await fetch(`/api/desk/${deskId}/start`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -504,41 +589,22 @@ async function issueAgentBrief(brief, deskId) {
     const current = state.jobs.find((item) => item.id === job.id);
     if (!current || current.runToken !== job.runToken) return;
     if (!payload.ok) throw new Error(payload.error ?? "agent_failed");
-    current.title = payload.title ?? current.title;
-    current.kind = payload.kind ?? current.kind;
-    current.source = payload.source ?? "agent";
-    if (payload.reason) current.agentNote = payload.reason;
-    current.steps = (payload.steps ?? current.steps).map((step) => ({ ...step, done: true }));
-    current.body = payload.body ?? payload.bodyMarkdown ?? "";
-    delete current._file;
-    current.status = "filed";
-    if (current.deskId === "forge") {
-      current.kind = "proposal";
-      current.proposal = proposalFromForgeBody(current.body, {
-        id: newId("evo"),
-        sourceJobId: current.id,
-        title: current.title,
-      });
+    if (payload.source === "playbook") {
+      applyAgentPayloadToJob(current, deskId, payload);
+      persist();
+      render();
+      return;
     }
-    current.updatedAt = Date.now();
-    log(
-      `${payload.source === "agent" ? desk?.name + " agent" : desk?.name + " playbook"} filed: ${current.title}`,
-    );
+    current.agentSessionId = payload.sessionId;
+    current.agentPollIndex = 0;
+    if (payload.steps) current.steps = payload.steps.map((step) => ({ ...step, done: false }));
+    if (payload.kind) current.kind = payload.kind;
     persist();
-    render();
+    await pollAgentSessionForJob(current, deskId, payload.sessionId, 0);
   } catch (error) {
     const current = state.jobs.find((item) => item.id === job.id);
     if (!current) return;
-    const fallback = runPlaybook(deskId, brief, state.company, state.evolution);
-    current.title = fallback.title;
-    current.body = fallback.body;
-    current.kind = fallback.kind ?? current.kind;
-    current.status = "filed";
-    current.source = "playbook";
-    current.agentNote = error instanceof Error ? error.message : "agent_error";
-    current.steps = fallback.steps.map((step) => ({ ...step, done: true }));
-    current.updatedAt = Date.now();
-    log(`${desk?.name ?? deskId} fell back to playbook: ${current.title}`);
+    applyPlaybookFallbackToJob(current, deskId, brief, error);
     persist();
     render();
   }
@@ -714,6 +780,7 @@ function bind() {
 
   els.deskSelect.innerHTML =
     `<option value="auto">Auto-route</option>` +
+    `<option value="all-live">All live desks (parallel)</option>` +
     DESKS.map((desk) => `<option value="${esc(desk.id)}">${esc(desk.name)} — ${esc(desk.job)}</option>`).join("");
 
   els.form.addEventListener("submit", issueBrief);
@@ -847,6 +914,11 @@ pullLinkedSourcesFromServer().then(() => renderLinkedSources());
 
 for (const job of state.jobs) {
   if (job.status !== "queued" && job.status !== "working") continue;
+  if (job.source === "agent" && job.agentSessionId) {
+    runJob(job.id, { agentFetch: true });
+    void pollAgentSessionForJob(job, job.deskId, job.agentSessionId, job.agentPollIndex ?? 0);
+    continue;
+  }
   if (!job._file) {
     const playbook = runPlaybook(job.deskId, job.brief, state.company, state.evolution);
     job._file = playbook.body;

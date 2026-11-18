@@ -1,5 +1,5 @@
 ---
-cron: "10 */6 * * *"
+cron: "0 */6 * * *"
 ---
 
 **24/7 patrol shift** — there is no orchestrator brief on this turn.
