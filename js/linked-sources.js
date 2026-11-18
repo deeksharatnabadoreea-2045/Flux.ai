@@ -125,3 +125,5 @@ export function egressDomainsFromConfig(config) {
   }
   return [...hosts].sort();
 }
+
+export { egressDomainsFromSources } from "./trusted-sources.js";

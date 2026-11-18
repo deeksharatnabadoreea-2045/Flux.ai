@@ -131,6 +131,7 @@ const LIVE_AGENT_DESKS = [
   "voice",
   "floor",
   "ledger",
+  "validator",
   "wire",
   "forge",
 ];
