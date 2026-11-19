@@ -75,3 +75,17 @@ test("fake science forces block verdict", () => {
 test("detectFakeScienceRhetoric finds hype phrases", () => {
   assert.ok(detectFakeScienceRhetoric("This is 100% concordance guaranteed").length > 0);
 });
+
+test("validateScientificMethodReport blocks DOI outside Observations", () => {
+  const body = minimalValidBody.replace(
+    "## Inferences (conclusions)\nCannot confirm alignment without data.",
+    "## Inferences (conclusions)\nSupported by 10.9999/invented.doi.42 without lineage.",
+  );
+  const result = validateScientificMethodReport({
+    bodyMarkdown: body,
+    fakeScienceDetected: false,
+    verdict: "fix",
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.includes("unverified_doi_outside_observations")));
+});

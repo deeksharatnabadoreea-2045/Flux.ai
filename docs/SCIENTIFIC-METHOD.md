@@ -30,7 +30,9 @@ Validator must set `verdict: block` and `fakeScienceDetected: true` when any of 
 - Fabricated study ids, urls, or statistics not present in observations  
 - Unfalsifiable wording (“always works”, “no uncertainty”)  
 
-Implementation: `js/scientific-method.js` and `file_validator_report` tool checks.
+Implementation: `js/scientific-method.js`, `js/literature-verify.js`, and `file_validator_report` tool checks.
+
+**Citation provenance:** DOIs and PMIDs that appear outside **Observations (data in hand)** without also appearing there are treated as unverified (potential fabrication). Only official APIs (PubMed eutils, OpenAlex, PubChem, ChEBI/HMDB) may confirm identifiers — never invent study ids.
 
 ## Other desks
 
