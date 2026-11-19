@@ -1,7 +1,10 @@
 /**
  * Scientific-method rubric for Validator audits — blocks fake science on Flux.
  * @see docs/SCIENTIFIC-METHOD.md
+ * @see js/literature-verify.js
  */
+
+import { checkIdentifierProvenance } from "./literature-verify.js";
 
 /** Markdown section titles Validator must include (## or **Title**). */
 export const VALIDATOR_SCIENCE_HEADINGS = [
@@ -94,13 +97,21 @@ export function validateScientificMethodReport(input) {
     }
   }
 
+  // DOIs/PMIDs must appear in Observations (lineage) — never invent citations in Inferences alone.
+  const idCheck = checkIdentifierProvenance(obs, extractSection, headingPresent);
+  errors.push(...idCheck.errors);
+
   return { ok: errors.length === 0, errors };
 }
 
 function extractSection(body, title) {
   const variants = [title, ...(HEADING_ALIASES[title] ?? [])];
   for (const v of variants) {
-    const re = new RegExp(`(?:#+\\s*${v}|\\*\\*${v}\\*\\*)\\s*([\\s\\S]*?)(?=\\n#+\\s|\\n\\*\\*[A-Z]|$)`, "i");
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(
+      `(?:#+\\s*${escaped}|\\*\\*${escaped}\\*\\*)\\s*([\\s\\S]*?)(?=\\n#+\\s|\\n\\*\\*[A-Z]|$)`,
+      "i",
+    );
     const m = body.match(re);
     if (m) return m[1];
   }
