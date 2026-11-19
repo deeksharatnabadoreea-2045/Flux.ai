@@ -63,6 +63,11 @@ export async function handler(event) {
     return json(403, { ok: false, error: originGate.error });
   }
 
+  // GET health must not burn the abuse rate budget (uptime probes / browser polls).
+  if (method === "GET") {
+    return json(200, chatHealth());
+  }
+
   const clientKey = clientKeyFromHeaders(headers);
   const rate = checkChatRateLimit(`netlify:${clientKey}`);
   if (!rate.allowed) {
@@ -71,10 +76,6 @@ export async function handler(event) {
       { ok: false, error: "rate_limited", retryAfterSec: rate.retryAfterSec },
       { "retry-after": String(rate.retryAfterSec) },
     );
-  }
-
-  if (method === "GET") {
-    return json(200, chatHealth());
   }
 
   const rawBody = event.isBase64Encoded
