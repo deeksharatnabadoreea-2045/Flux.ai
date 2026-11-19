@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { resetChatRateLimits } from "../../js/chat-guard.mjs";
-import { handler } from "./chat.mjs";
+import { resetChatRateLimits } from "./chat-guard.mjs";
+import { handler } from "../netlify/functions/chat.mjs";
 
 const originalKey = process.env.GROQ_API_KEY;
 const originalFetch = globalThis.fetch;
