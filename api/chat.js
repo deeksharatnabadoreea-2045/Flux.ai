@@ -26,6 +26,7 @@ async function requireViewer(request) {
 export async function GET(request) {
   const identity = await requireViewer(request);
   if (identity instanceof Response) return identity;
+  // Health is authenticated but does not consume the POST abuse budget.
   return json(200, chatHealth());
 }
 

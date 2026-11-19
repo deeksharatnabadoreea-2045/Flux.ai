@@ -101,3 +101,31 @@ test("Netlify chat validates oversized payloads", async () => {
   assert.equal(res.statusCode, 400);
   assert.match(res.body, /message_too_long/);
 });
+
+test("Netlify chat GET health is same-origin and does not burn rate budget", async () => {
+  delete process.env.GROQ_API_KEY;
+  globalThis.fetch = async () => {
+    throw new Error("network_disabled_for_rate_limit_test");
+  };
+  const headers = {
+    host: "flux-ai-bio.netlify.app",
+    origin: "https://flux-ai-bio.netlify.app",
+    "x-nf-client-connection-ip": "203.0.113.77",
+  };
+  for (let i = 0; i < 40; i += 1) {
+    const health = await handler(
+      event({
+        httpMethod: "GET",
+        headers,
+        body: "",
+      }),
+    );
+    assert.equal(health.statusCode, 200, `health ${i + 1}`);
+    const body = JSON.parse(health.body);
+    assert.equal(body.ok, true);
+    assert.equal(body.groqConfigured, false);
+  }
+  // POST budget still available after many GET probes.
+  const post = await handler(event({ headers }));
+  assert.equal(post.statusCode, 200);
+});
