@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=layout-parity-1";
-import { initLandingChat } from "./landing-chat.js?v=layout-parity-1";
+import { ACCESS } from "./access-config.js?v=responsive-restore-1";
+import { initLandingChat } from "./landing-chat.js?v=responsive-restore-1";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
@@ -37,8 +37,7 @@ function setSidebarOpen(open) {
 }
 
 function isMobileSidebar() {
-  /* Phones use viewport width=1280; always keep the persistent desktop sidebar. */
-  return false;
+  return window.matchMedia("(max-width: 900px)").matches;
 }
 
 function initSidebar() {

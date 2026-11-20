@@ -2,11 +2,12 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-20-redeploy",
+  stamp: "prod-2026-11-20-responsive-restore",
+  cacheBust: "responsive-restore-1",
 };
 
-test.describe("one Flux site — desktop layout at all viewport widths", () => {
-  test("loads the same build and keeps desktop sections", async ({ page }, testInfo) => {
+test.describe("one Flux site — same content at 375, 768, and 1440", () => {
+  test("loads the same build and keeps all sections", async ({ page }, testInfo) => {
     const width = page.viewportSize()?.width ?? 0;
     const narrow = width <= 900;
 
@@ -17,16 +18,22 @@ test.describe("one Flux site — desktop layout at all viewport widths", () => {
       "content",
       SHARED.stamp,
     );
+    await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+      "content",
+      /width=device-width/,
+    );
     await expect(page.locator('link[href*="landing.css"]')).toHaveAttribute(
       "href",
-      /landing\.css\?v=layout-parity-1/,
+      new RegExp(`landing\\.css\\?v=${SHARED.cacheBust}`),
     );
     await expect(page.locator('script[src*="landing.js"]')).toHaveAttribute(
       "src",
-      /landing\.js\?v=layout-parity-1/,
+      new RegExp(`landing\\.js\\?v=${SHARED.cacheBust}`),
     );
 
-    const workers = await page.evaluate(() => "serviceWorker" in navigator && !!navigator.serviceWorker.controller);
+    const workers = await page.evaluate(
+      () => "serviceWorker" in navigator && !!navigator.serviceWorker.controller,
+    );
     expect(workers).toBe(false);
 
     await expect(page.locator(".hero-title")).toBeVisible();
@@ -38,18 +45,32 @@ test.describe("one Flux site — desktop layout at all viewport widths", () => {
 
     const newChat = page.locator(".nav-item", { hasText: "New Chat" });
     const chats = page.locator("#chat-list-toggle");
+    const sidebarToggle = page.locator("#sidebar-toggle");
 
     await page.screenshot({
-      path: `/opt/cursor/artifacts/layout-${narrow ? "375" : "1440"}.png`,
+      path: `/opt/cursor/artifacts/layout-${width}.png`,
       fullPage: false,
     });
 
-    await expect(page.locator("#sidebar-toggle")).toBeHidden();
+    if (narrow) {
+      await expect(sidebarToggle).toBeVisible();
+      await sidebarToggle.click();
+      await expect(page.locator("#sidebar")).toHaveClass(/is-open/);
+      await expect(newChat).toBeVisible();
+      await expect(chats).toBeVisible();
+      await page.screenshot({
+        path: `/opt/cursor/artifacts/layout-${width}-menu.png`,
+        fullPage: false,
+      });
+    } else {
+      await expect(sidebarToggle).toBeHidden();
+      await expect(newChat).toBeVisible();
+      await expect(chats).toBeVisible();
+    }
 
-    await expect(newChat).toBeVisible();
-    await expect(chats).toBeVisible();
     await expect(page.locator(".brand").first()).toHaveText("Flux");
 
-    expect(testInfo.project.name === "mobile" ? narrow : !narrow).toBe(true);
+    const projectWidth = { mobile: 375, tablet: 768, desktop: 1440 }[testInfo.project.name];
+    expect(width).toBe(projectWidth);
   });
 });
