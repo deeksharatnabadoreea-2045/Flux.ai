@@ -5,7 +5,7 @@ const SHARED = {
   stamp: "prod-2026-11-20-redeploy",
 };
 
-test.describe("one Flux site at desktop and mobile widths", () => {
+test.describe("one Flux site — desktop layout at all viewport widths", () => {
   test("loads the same build and keeps desktop sections", async ({ page }, testInfo) => {
     const width = page.viewportSize()?.width ?? 0;
     const narrow = width <= 900;
@@ -44,14 +44,7 @@ test.describe("one Flux site at desktop and mobile widths", () => {
       fullPage: false,
     });
 
-    if (narrow) {
-      await page.locator("#sidebar-toggle").click();
-      await expect(page.locator("#sidebar")).toHaveClass(/is-open/);
-      await page.screenshot({
-        path: "/opt/cursor/artifacts/layout-375-menu.png",
-        fullPage: false,
-      });
-    }
+    await expect(page.locator("#sidebar-toggle")).toBeHidden();
 
     await expect(newChat).toBeVisible();
     await expect(chats).toBeVisible();

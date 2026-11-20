@@ -910,8 +910,8 @@ button {
   letter-spacing: -0.02em;
 }
 
-/* —— Tablet —— */
-@media (max-width: 1024px) {
+/* —— Tablet (disabled: force desktop layout on all widths) —— */
+@media (max-width: 0px) {
   .app-shell {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -927,8 +927,8 @@ button {
   }
 }
 
-/* —— Narrow screens: same shell, sidebar becomes a drawer —— */
-@media (max-width: 900px) {
+/* —— Narrow screens (disabled: force desktop layout on all widths) —— */
+@media (max-width: 0px) {
   html,
   body {
     width: 100%;
@@ -1157,7 +1157,7 @@ button {
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 0px) {
   .composer-attach {
     padding: 0.35rem 0.5rem;
     font-size: 0.72rem;
