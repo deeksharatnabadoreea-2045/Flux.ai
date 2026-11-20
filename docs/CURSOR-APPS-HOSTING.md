@@ -29,6 +29,8 @@ The GitHub repository is the **source of truth for code**, not a second producti
 
 There is **no** separate mobile deploy URL. Desktop and mobile use the same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
 
+**Deploy verification:** `index.html` carries `flux-deploy-sha` / `data-flux-deploy`; authenticated `GET /api/chat` returns `deployRevision` from `js/deploy-revision.js`.
+
 Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages, change Pages/Netlify settings, or change Cursor Apps visibility without Deeksharatna’s approval.
 
 ## Cursor Apps (current)

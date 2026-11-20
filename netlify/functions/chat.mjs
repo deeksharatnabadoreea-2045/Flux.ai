@@ -38,6 +38,16 @@ function headerMap(event) {
 }
 
 export async function handler(event) {
+  // Cursor Apps sets CURSOR_APP_ID. Never serve this legacy handler there —
+  // production chat is api/chat.js with requireIdentity.
+  if (process.env.CURSOR_APP_ID) {
+    return json(410, {
+      ok: false,
+      error: "legacy_netlify_disabled",
+      message: "Use Cursor Apps /api/chat",
+    });
+  }
+
   const method = event.httpMethod || "GET";
   const headers = headerMap(event);
 
