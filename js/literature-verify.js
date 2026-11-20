@@ -151,6 +151,58 @@ export async function verifyPubmedId(pmid, options = {}) {
 }
 
 /**
+ * Verify a DOI via OpenAlex (official). Does not invent results.
+ * Set OPENALEX_MAILTO / FLUX_SCIENCE_OPENALEX_MAILTO for the polite pool.
+ * @param {string} doi
+ * @param {{ fetchImpl?: typeof fetch, mailto?: string }} [options]
+ */
+export async function verifyOpenAlexDoi(doi, options = {}) {
+  const cleaned = String(doi ?? "")
+    .trim()
+    .replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
+    .replace(/^doi:\s*/i, "");
+  if (!isWellFormedDoi(cleaned)) {
+    return { ok: false, status: "error", message: "malformed_doi", doi: cleaned };
+  }
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  if (!fetchImpl) {
+    return { ok: false, status: "unavailable", message: "fetch_unavailable", doi: cleaned };
+  }
+  const mailto =
+    options.mailto ||
+    process.env.OPENALEX_MAILTO ||
+    process.env.FLUX_SCIENCE_OPENALEX_MAILTO ||
+    "";
+  const url = new URL(`https://api.openalex.org/works/https://doi.org/${cleaned}`);
+  if (mailto) url.searchParams.set("mailto", mailto);
+  const res = await fetchImpl(url);
+  if (res.status === 404) {
+    return { ok: false, status: "not_found", message: "doi_not_found", doi: cleaned };
+  }
+  if (res.status === 429 || res.status === 403) {
+    return {
+      ok: false,
+      status: "unavailable",
+      message: "openalex_rate_limited",
+      doi: cleaned,
+    };
+  }
+  if (!res.ok) {
+    return { ok: false, status: "error", message: `http_${res.status}`, doi: cleaned };
+  }
+  const data = await res.json();
+  return {
+    ok: true,
+    status: data?.is_retracted ? "retracted" : "ok",
+    doi: cleaned,
+    title: data?.display_name ?? null,
+    retracted: Boolean(data?.is_retracted),
+    url: data?.doi ?? `https://doi.org/${cleaned}`,
+    openalexId: data?.id ?? null,
+  };
+}
+
+/**
  * Verify PubChem compound name → CID/formula (official PUG REST).
  * @param {string} name
  * @param {{ fetchImpl?: typeof fetch }} [options]

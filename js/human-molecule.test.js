@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 import {
   evaluateHumanOccurrence,
   extractChebiHumanSignals,
+  fetchChebiCompoundWithRetry,
   fetchChebiIdsForCid,
   fetchHmdbIdsForCid,
   verifyHumanOccurrence,
@@ -86,6 +87,48 @@ test("evaluateHumanOccurrence rejects HMDB-only xenobiotics without metabolite r
 test("evaluateHumanOccurrence rejects empty evidence", () => {
   const result = evaluateHumanOccurrence({});
   assert.equal(result.occursInHumans, false);
+});
+
+test("evaluateHumanOccurrence marks chebi_unavailable when linked ids all fail", () => {
+  const result = evaluateHumanOccurrence({
+    chebiIds: ["17234"],
+    chebiSignals: [],
+    chebiFetchErrors: ["CHEBI:17234:ChEBI request failed (HTTP 503)"],
+  });
+  assert.equal(result.occursInHumans, false);
+  assert.equal(result.reason, "chebi_unavailable");
+  assert.ok(result.chebiFetchErrors?.length);
+});
+
+test("fetchChebiCompoundWithRetry retries then succeeds", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls < 2) {
+      return { ok: false, status: 503, json: async () => ({}) };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        roles_classification: { name: "fundamental metabolite" },
+        compound_origins: [
+          {
+            species_text: "Homo sapiens",
+            species_accession: "9606",
+            source: "PubMed",
+            source_accession: "21886157",
+          },
+        ],
+      }),
+    };
+  };
+  const record = await fetchChebiCompoundWithRetry("17234", {
+    attempts: 3,
+    delayMs: 1,
+  });
+  assert.equal(calls, 2);
+  assert.equal(record.compound_origins[0].source_accession, "21886157");
 });
 
 test("extractChebiHumanSignals reads nested roles and Homo sapiens origins", () => {

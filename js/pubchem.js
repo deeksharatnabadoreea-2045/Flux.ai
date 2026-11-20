@@ -65,6 +65,11 @@ export async function lookupMolecule(query, options = {}) {
   }
 
   if (!humanEvidence.occursInHumans) {
+    if (humanEvidence.reason === "chebi_unavailable") {
+      throw new Error(
+        `Found “${trimmed}” in PubChem (CID ${cid}) with ChEBI links, but ChEBI was unavailable (${(humanEvidence.chebiFetchErrors || []).join("; ") || "fetch failed"}). Retry later — do not treat this as proof of absence.`,
+      );
+    }
     throw new Error(
       `“${trimmed}” is in PubChem (CID ${cid}) but is not included in the human molecule library: no reliable ChEBI/HMDB evidence that it occurs naturally in humans.`,
     );
