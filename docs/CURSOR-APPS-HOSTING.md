@@ -6,14 +6,16 @@ Production hosting for the Flux landing site and chat API. This is not a product
 
 | Item | Value |
 | --- | --- |
-| **Live URL** | `https://flux-ai.apps.grok.bot` |
-| Slug | `flux-ai` |
+| **Design reference (until owner picks otherwise)** | `https://flux-ai-3cdd.apps.grok.bot` (slug `flux-ai-3cdd`) |
+| **Also live (do not treat as a second product)** | `https://flux-ai.apps.grok.bot` (slug `flux-ai`) |
 | Host | Cursor Apps (`apps.grok.bot`) |
 | Framework | Static HTML + ES modules (no React/Next build) |
 | Build command | `npm run build` (applies SQL migrations when `DATABASE_URL` is set) |
 | Start (local) | `npm run dev` (API + static) or `npm start` (static only) |
 | Chat backend | Groq via `GROQ_API_KEY` (server-side only) |
 | Science data | PubChem + ChEBI/HMDB human-occurrence gate |
+
+**Dual deployment:** `flux-ai-3cdd` and `flux-ai` are **separate** Cursor Apps publishes of this same repo folder. Desktop and mobile for a given slug share one build (responsive CSS — no separate mobile site). Pick **one** slug as canonical production, republish only that slug, and stop using the other. Prefer consolidating on `flux-ai-3cdd` (design source of truth) unless the owner explicitly chooses `flux-ai` after confirming UI parity. Do not create a third app.
 
 Do **not** treat `https://flux-ai-bio.netlify.app` as production. That hostname may still resolve historically; it is obsolete for live inspect, SEO, and agent defaults.
 
@@ -34,11 +36,12 @@ The GitHub repository is the **source of truth for code**, not a second producti
 
 | Host | Role |
 | --- | --- |
-| `https://flux-ai.apps.grok.bot` | **Production** (Cursor Apps) |
+| `https://flux-ai-3cdd.apps.grok.bot` | **Design reference** / recommended single production (Cursor Apps) |
+| `https://flux-ai.apps.grok.bot` | Second Cursor Apps publish — consolidate away after owner pick |
 | `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` | GitHub Pages static mirror — **not production** |
 | `https://flux-ai-bio.netlify.app` | Legacy Netlify — **not production** |
 
-There is **no** separate mobile deploy URL. Desktop and mobile use the same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
+There is **no** separate mobile deploy URL. For whichever slug is canonical, desktop and mobile use that same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
 
 **Deploy verification:** `index.html` carries `flux-deploy-sha` / `flux-deploy-stamp`; `GET /api/chat` returns `deployStamp` / `publicChat: true`.
 
@@ -67,7 +70,7 @@ The browser only calls same-origin `POST /api/chat` with `credentials: "same-ori
 
 ## Publish / update path
 
-Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud agent / Apps dashboard **publish** (or republish); first publish and visibility changes wait for owner confirmation.
+Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud agent / Apps dashboard **publish** (or republish) of the **single canonical slug**; first publish and visibility changes wait for owner confirmation. Updates may republish when automatic updates are allowed — still not a GitHub Actions deploy of this site. Approved desktop changes reach mobile only when that same app is republished (one responsive build).
 
 This repo has **no** custom `.github/workflows` deploy. GitHub’s built-in `pages-build-deployment` may refresh the github.io mirror when Pages is enabled; that mirror is not production.
 
