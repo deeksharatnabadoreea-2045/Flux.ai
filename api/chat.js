@@ -15,6 +15,7 @@ import {
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
 import {
   ensureVisitorSession,
+  resolveAnonymousVisitorKey,
   trustedClientKey,
 } from "../js/chat-visitor.mjs";
 import {
@@ -106,7 +107,7 @@ export async function POST(request) {
   const session = ensureVisitorSession(request);
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
-    : `anon:${session.visitorId}`;
+    : resolveAnonymousVisitorKey(request, session);
   const ipKey = trustedClientKey(request);
 
   const rate = await enforceChatRateLimits({

@@ -25,6 +25,7 @@ import {
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
 import {
   ensureVisitorSession,
+  resolveAnonymousVisitorKey,
   trustedClientKey,
 } from "../js/chat-visitor.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
@@ -329,7 +330,7 @@ async function handlePublicChat(req, res) {
   const session = ensureVisitorSession(req, { secureCookie: false });
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
-    : `anon:${session.visitorId}`;
+    : resolveAnonymousVisitorKey(req, session);
   const ipKey = trustedClientKey(req);
 
   if (req.method === "GET") {
