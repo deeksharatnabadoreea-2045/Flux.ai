@@ -37,7 +37,8 @@ function setSidebarOpen(open) {
 }
 
 function isMobileSidebar() {
-  return window.matchMedia("(max-width: 900px)").matches;
+  /* Phones use viewport width=1280; always keep the persistent desktop sidebar. */
+  return false;
 }
 
 function initSidebar() {

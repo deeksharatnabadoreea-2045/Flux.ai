@@ -556,8 +556,8 @@ select {
   margin-top: 0.55rem;
 }
 
-/* —— Mobile / narrow: stack the floor —— */
-@media (max-width: 960px) {
+/* —— Mobile / narrow (disabled: force desktop layout on all widths) —— */
+@media (max-width: 0px) {
   html,
   body {
     height: auto;
