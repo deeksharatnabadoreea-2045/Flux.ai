@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-20-responsive-restore",
-  cacheBust: "responsive-restore-1",
+  stamp: "prod-2026-11-20-cross-device-parity",
+  cacheBust: "cross-device-parity-1",
 };
 
 test.describe("one Flux site — same content at 375, 768, and 1440", () => {
@@ -40,6 +40,8 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
     await expect(page.locator(".hero-sub")).toContainText("human body and its molecules");
     await expect(page.locator("#composer-input")).toBeVisible();
     await expect(page.locator("#access-open")).toHaveText("Get access");
+    await expect(page.locator("#flux-deploy-release")).toBeVisible();
+    await expect(page.locator("#flux-deploy-release")).toHaveText(SHARED.stamp);
     await expect(page.locator(".landing-footer .brand-mark")).toBeVisible();
     await expect(page.locator(".landing-footer .brand-mark")).toHaveText("Flux");
 
