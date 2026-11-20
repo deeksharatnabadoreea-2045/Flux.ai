@@ -111,6 +111,28 @@ function renderThread(chat) {
   }
 }
 
+function friendlyChatError(status, data) {
+  const code = String(data?.error || "");
+  if (status === 429 || code === "rate_limited") {
+    const wait = Number(data?.retryAfterSec) || 60;
+    return `You are sending messages too quickly. Try again in about ${wait} seconds.`;
+  }
+  if (code === "origin_forbidden" || code === "origin_required") {
+    return "This chat only works from the Flux website.";
+  }
+  if (code === "body_too_large" || code === "message_too_long" || code === "too_many_messages") {
+    return "That message is too long. Shorten it and try again.";
+  }
+  if (code === "sign_in_required" || code === "unauthorized") {
+    return "Chat is temporarily unavailable. Refresh the page and try again.";
+  }
+  if (typeof data?.reply === "string" && data.reply.trim()) return data.reply;
+  if (code && !/gsk_|sk-|GROQ|api[_-]?key/i.test(code)) {
+    return `Chat failed (${code}).`;
+  }
+  return `Chat failed (HTTP ${status}).`;
+}
+
 async function postChat(payload) {
   const endpoints = ["/api/chat", "/.netlify/functions/chat"];
   let lastError = null;
@@ -119,6 +141,7 @@ async function postChat(payload) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -127,7 +150,7 @@ async function postChat(payload) {
         lastError = new Error("chat_endpoint_missing");
         continue;
       }
-      throw new Error(data?.error || data?.reply || `Chat failed (HTTP ${res.status})`);
+      throw new Error(friendlyChatError(res.status, data));
     } catch (err) {
       lastError = err;
       if (err instanceof TypeError) continue;
@@ -193,10 +216,13 @@ async function handleSubmit(event) {
       document.getElementById("molecule-result")?.classList.add("is-hidden");
     }
   } catch (err) {
+    const raw = err?.message || "Chat failed.";
     const message =
       err instanceof TypeError
-        ? "Could not reach the chat service. Open the Cursor Apps deployment or run npm run dev."
-        : err?.message || "Chat failed.";
+        ? "Could not reach the chat service. Refresh the page or try again in a moment."
+        : /gsk_|sk-|GROQ_API_KEY|api key/i.test(String(raw))
+          ? "Chat is temporarily unavailable. Try again shortly."
+          : raw;
     chat.messages.push({ role: "assistant", content: message });
     saveStore(store);
     appendBubble(thread, "assistant", message);

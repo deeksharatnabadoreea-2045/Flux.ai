@@ -17,7 +17,16 @@ import {
   writeLinkedSourcesConfig,
 } from "../js/linked-sources-sync.mjs";
 import { getIdentity } from "../cursor/identity.js";
-import { checkChatRateLimit, validateChatPayload } from "../js/chat-guard.mjs";
+import {
+  assertChatBrowserOrigin,
+  MAX_CHAT_BODY_BYTES,
+  validateChatPayload,
+} from "../js/chat-guard.mjs";
+import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
+import {
+  ensureVisitorSession,
+  trustedClientKey,
+} from "../js/chat-visitor.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
@@ -293,54 +302,104 @@ function jsonHeaders(extra = {}) {
   };
 }
 
+function writeChatJson(res, status, body, setCookie, extraHeaders = {}) {
+  const headers = jsonHeaders(extraHeaders);
+  if (setCookie) headers["set-cookie"] = setCookie;
+  res.writeHead(status, headers);
+  res.end(JSON.stringify(body));
+}
+
+/**
+ * Public science chat (mirrors api/chat.js): anonymous OK with same-origin + rate limits.
+ * Optional Cursor identity raises per-visitor limits when present.
+ */
+async function handlePublicChat(req, res) {
+  const originGate = assertChatBrowserOrigin(req.headers);
+  if (!originGate.ok && req.method === "POST") {
+    writeChatJson(res, 403, { ok: false, error: originGate.error });
+    return;
+  }
+  if (!originGate.ok && originGate.error === "origin_forbidden") {
+    writeChatJson(res, 403, { ok: false, error: originGate.error });
+    return;
+  }
+
+  const identity = await getIdentity(req);
+  const signedIn = Boolean(identity.verified);
+  const session = ensureVisitorSession(req, { secureCookie: false });
+  const visitorKey = signedIn
+    ? `user:${identity.sub || identity.userId || "viewer"}`
+    : `anon:${session.visitorId}`;
+  const ipKey = trustedClientKey(req);
+
+  if (req.method === "GET") {
+    writeChatJson(
+      res,
+      200,
+      { ...chatHealth(), publicChat: true, signedIn },
+      session.setCookie,
+    );
+    return;
+  }
+
+  if (req.method !== "POST") {
+    writeChatJson(res, 405, { ok: false, error: "method_not_allowed" }, session.setCookie);
+    return;
+  }
+
+  const rate = await enforceChatRateLimits({ visitorKey, ipKey, signedIn });
+  if (!rate.allowed) {
+    writeChatJson(
+      res,
+      429,
+      {
+        ok: false,
+        error: "rate_limited",
+        retryAfterSec: rate.retryAfterSec,
+        scope: rate.scope,
+      },
+      session.setCookie,
+      { "retry-after": String(rate.retryAfterSec) },
+    );
+    return;
+  }
+
+  let raw = "";
+  for await (const chunk of req) raw += chunk;
+  if (raw.length > MAX_CHAT_BODY_BYTES) {
+    writeChatJson(res, 413, { ok: false, error: "body_too_large" }, session.setCookie);
+    return;
+  }
+  try {
+    const payload = JSON.parse(raw || "{}");
+    const validated = validateChatPayload(payload);
+    if (!validated.ok) {
+      writeChatJson(res, 400, { ok: false, error: validated.error }, session.setCookie);
+      return;
+    }
+    const result = await handleScienceChat(validated.value);
+    delete result.apiKey;
+    delete result.GROQ_API_KEY;
+    const status = result.status ?? (result.ok ? 200 : 500);
+    writeChatJson(res, status, result, session.setCookie);
+  } catch {
+    writeChatJson(res, 500, { ok: false, error: "chat_failed" }, session.setCookie);
+  }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
-  // All /api/* routes (including chat) require a verified viewer.
-  // Locally, cursor/identity.dev.js supplies a simulated viewer.
+  // Public chat — no Cursor sign-in required (same-origin + rate limits).
+  if (url.pathname === "/api/chat") {
+    await handlePublicChat(req, res);
+    return;
+  }
+
+  // Other /api/* routes still require a verified viewer (local simulated identity).
   if (url.pathname.startsWith("/api/")) {
     const identity = await requireApiViewer(req, res);
     if (!identity) return;
-
-    if (req.method === "GET" && url.pathname === "/api/chat") {
-      res.writeHead(200, jsonHeaders());
-      res.end(JSON.stringify(chatHealth()));
-      return;
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/chat") {
-      const rate = checkChatRateLimit(identity.sub || identity.userId || "viewer");
-      if (!rate.allowed) {
-        res.writeHead(429, jsonHeaders({ "retry-after": String(rate.retryAfterSec) }));
-        res.end(
-          JSON.stringify({
-            ok: false,
-            error: "rate_limited",
-            retryAfterSec: rate.retryAfterSec,
-          }),
-        );
-        return;
-      }
-      let raw = "";
-      for await (const chunk of req) raw += chunk;
-      try {
-        const payload = JSON.parse(raw || "{}");
-        const validated = validateChatPayload(payload);
-        if (!validated.ok) {
-          res.writeHead(400, jsonHeaders());
-          res.end(JSON.stringify({ ok: false, error: validated.error }));
-          return;
-        }
-        const result = await handleScienceChat(validated.value);
-        const status = result.status ?? (result.ok ? 200 : 500);
-        res.writeHead(status, jsonHeaders());
-        res.end(JSON.stringify(result));
-      } catch {
-        res.writeHead(500, jsonHeaders());
-        res.end(JSON.stringify({ ok: false, error: "chat_failed" }));
-      }
-      return;
-    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/evolution/materialize") {

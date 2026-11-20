@@ -39,7 +39,7 @@ function headerMap(event) {
 
 export async function handler(event) {
   // Cursor Apps sets CURSOR_APP_ID. Never serve this legacy handler there —
-  // production chat is api/chat.js with requireIdentity.
+  // production chat is api/chat.js (public + optional identity).
   if (process.env.CURSOR_APP_ID) {
     return json(410, {
       ok: false,

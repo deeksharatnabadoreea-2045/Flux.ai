@@ -10,12 +10,23 @@ Production hosting for the Flux landing site and chat API. This is not a product
 | Slug | `flux-ai` |
 | Host | Cursor Apps (`apps.grok.bot`) |
 | Framework | Static HTML + ES modules (no React/Next build) |
-| Build command | None required for the landing; `npm test` for checks |
+| Build command | `npm run build` (applies SQL migrations when `DATABASE_URL` is set) |
 | Start (local) | `npm run dev` (API + static) or `npm start` (static only) |
 | Chat backend | Groq via `GROQ_API_KEY` (server-side only) |
 | Science data | PubChem + ChEBI/HMDB human-occurrence gate |
 
 Do **not** treat `https://flux-ai-bio.netlify.app` as production. That hostname may still resolve historically; it is obsolete for live inspect, SEO, and agent defaults.
+
+## Public chat (required for ordinary visitors)
+
+Ordinary visitors must be able to open the site and use `/api/chat` **without** a Cursor account.
+
+| Requirement | How |
+| --- | --- |
+| Visibility | App must be **Public** in Cursor Publish Settings (owner action). Private/team gates block the HTML before chat code runs. |
+| API auth | `api/chat.js` uses optional `getIdentity` — anonymous OK; signed-in viewers get higher limits |
+| Abuse controls | Same-origin Origin/Referer checks, signed `flux_vid` visitor cookie, trusted platform IP key, body/message limits, durable Postgres rate buckets when `DATABASE_URL` is set |
+| Secrets | Bind **`GROQ_API_KEY`** (required for Groq replies). Bind **`CHAT_SESSION_SECRET`** for visitor cookie HMAC (recommended). Never put keys in the browser. |
 
 ## GitHub is source only
 
@@ -29,33 +40,34 @@ The GitHub repository is the **source of truth for code**, not a second producti
 
 There is **no** separate mobile deploy URL. Desktop and mobile use the same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
 
-**Deploy verification:** `index.html` carries `flux-deploy-sha` / `data-flux-deploy`; authenticated `GET /api/chat` returns `deployRevision` from `js/deploy-revision.js`.
+**Deploy verification:** `index.html` carries `flux-deploy-sha` / `flux-deploy-stamp`; `GET /api/chat` returns `deployStamp` / `publicChat: true`.
 
-Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages, change Pages/Netlify settings, or change Cursor Apps visibility without Deeksharatna’s approval.
+Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages or change Netlify settings without Deeksharatna’s approval. Visibility must be **Public** for anonymous chat; that change is owner-controlled in Publish Settings.
 
 ## Cursor Apps (current)
 
 | Piece | Path |
 | --- | --- |
 | Static site | `index.html`, `landing.css`, `js/*`, `hq.html`, … |
-| Chat route | `api/chat.js` — `export async function GET/POST(request)` |
-| Shared logic | `js/science-chat.mjs` (same as local / legacy Netlify function) |
-| Auth | Cursor sign-in via `requireIdentity` (private/team apps) |
-| Rate limit | Per-viewer window in `js/chat-guard.mjs` (Cursor Apps + local HQ) |
-| Secret | Bind **`GROQ_API_KEY`** in Cursor Apps / secure secrets |
-| Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` if you need extra browser origins |
+| Chat route | `api/chat.js` — public GET/POST with optional identity |
+| Rate store | `js/chat-rate-store.mjs` + `migrations/001_chat_rate_limits.sql` (Postgres via `cursor-app.json`) |
+| Visitor sessions | `js/chat-visitor.mjs` (`CHAT_SESSION_SECRET`) |
+| Shared logic | `js/science-chat.mjs` |
+| Secret | Bind **`GROQ_API_KEY`**; bind **`CHAT_SESSION_SECRET`** |
+| Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` |
 
-The browser only calls same-origin `POST /api/chat`. It never receives the key.
+The browser only calls same-origin `POST /api/chat` with `credentials: "same-origin"`. It never receives the key.
 
 ## Local development
 
 1. Set `GROQ_API_KEY` in the environment (or Cursor secrets for hosted runs).
-2. Run `npm run dev` and open http://127.0.0.1:4173.
-3. Chat health: authenticated `GET /api/chat` on Cursor Apps; local HQ serves the same route via the Node proxy.
+2. Optional: `CHAT_SESSION_SECRET` for stable visitor cookies.
+3. Run `npm run dev` and open http://127.0.0.1:4173 — chat works without Cursor sign-in.
+4. `npm test` and `npm run test:playwright` for automated coverage.
 
 ## Publish / update path
 
-Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud agent / Apps dashboard **publish** (or republish); first publish and visibility changes wait for owner confirmation. Updates may republish when automatic updates are allowed — still not a GitHub Actions deploy of this site.
+Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud agent / Apps dashboard **publish** (or republish); first publish and visibility changes wait for owner confirmation.
 
 This repo has **no** custom `.github/workflows` deploy. GitHub’s built-in `pages-build-deployment` may refresh the github.io mirror when Pages is enabled; that mirror is not production.
 
