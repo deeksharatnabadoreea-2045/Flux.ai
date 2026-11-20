@@ -65,6 +65,28 @@ button {
   outline-offset: 2px;
 }
 
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 1000;
+  padding: 0.55rem 0.9rem;
+  border-radius: 6px;
+  background: #0b1220;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 .mast {
   display: grid;
   grid-template-columns: 1fr auto;
