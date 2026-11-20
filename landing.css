@@ -927,19 +927,15 @@ button {
   }
 }
 
-/* —— Mobile: drawer chrome, full-bleed shell —— */
+/* —— Narrow screens: same shell, sidebar becomes a drawer —— */
 @media (max-width: 900px) {
   html,
   body {
     width: 100%;
     height: 100%;
     min-height: 100dvh;
-    background: var(--surface-muted);
+    background: var(--bg);
     overflow: hidden;
-  }
-
-  .page-backdrop {
-    display: none;
   }
 
   .app {
@@ -1065,12 +1061,21 @@ button {
 
   .user-chip {
     flex-shrink: 0;
-    padding: 0.2rem;
+    padding: 0.2rem 0.45rem 0.2rem 0.2rem;
     border-radius: 999px;
   }
 
   .user-meta {
-    display: none;
+    display: flex;
+    min-width: 0;
+  }
+
+  .user-name,
+  .user-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 34vw;
   }
 
   .user-chip img {
@@ -1142,7 +1147,9 @@ button {
   }
 
   .landing-footer {
-    display: none;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0.85rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
   }
 
   body.sidebar-open {
