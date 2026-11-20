@@ -1,6 +1,6 @@
 /** Landing conversational chat UI — calls /api/chat (Groq on the server). */
 
-import { setMoleculePanel } from "./landing-pubchem.js?v=layout-parity-1";
+import { setMoleculePanel } from "./landing-pubchem.js?v=responsive-restore-1";
 
 const STORAGE_KEY = "flux.scienceChats.v1";
 const MAX_CHATS = 20;
