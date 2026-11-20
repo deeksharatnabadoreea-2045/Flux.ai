@@ -53,7 +53,11 @@ export function headingPresent(bodyMarkdown, title) {
   const variants = [title, ...(HEADING_ALIASES[title] ?? [])];
   return variants.some((v) => {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(^|\\n)#+\\s*${escaped}\\b|\\*\\*${escaped}\\*\\*`, "i");
+    // Titles may end with ")" — \\b fails between non-word chars; use lookahead.
+    const re = new RegExp(
+      `(^|\\n)#+\\s*${escaped}(?=\\s|$)|\\*\\*${escaped}\\*\\*`,
+      "i",
+    );
     return re.test(text);
   });
 }

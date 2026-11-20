@@ -6,6 +6,7 @@ import {
   checkIdentifierProvenance,
   isWellFormedDoi,
   isWellFormedPmid,
+  verifyOpenAlexDoi,
   verifyPubchemName,
 } from "./literature-verify.js";
 
@@ -70,4 +71,24 @@ test("verifyPubchemName returns water CID 962 via official API", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.cid, 962);
   assert.equal(result.formula, "H2O");
+});
+
+test("verifyOpenAlexDoi rejects malformed DOIs without inventing hits", async () => {
+  const result = await verifyOpenAlexDoi("not-a-doi");
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "error");
+});
+
+test("heading-style DOI provenance still passes when listed in Observations", () => {
+  const body = `
+## Observations (data in hand)
+ChEBI compound_origins cites PubMed 21886157 (not a fabricated id).
+
+## Inferences (conclusions)
+Human origin accession PubMed 21886157 is lineage-tied.
+`;
+  // PMID form
+  const pmidBody = body.replaceAll("21886157", "PMID: 21886157");
+  const result = checkIdentifierProvenance(pmidBody, extractSection, headingPresent);
+  assert.equal(result.ok, true);
 });

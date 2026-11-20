@@ -40,8 +40,33 @@ const MAX_CHEBI_LOOKUPS = 6;
  *   humanRoles: string[],
  *   proxyRoles: string[],
  *   humanOriginSources: Array<{ species: string, source: string, sourceAccession: string, chebiId: string }>,
+ *   chebiFetchErrors?: string[],
  * }} HumanOccurrenceEvidence
  */
+
+const CHEBI_FETCH_ATTEMPTS = 3;
+const CHEBI_RETRY_MS = 250;
+
+/**
+ * @param {string} chebiId
+ * @param {{ attempts?: number, delayMs?: number }} [options]
+ */
+export async function fetchChebiCompoundWithRetry(chebiId, options = {}) {
+  const attempts = options.attempts ?? CHEBI_FETCH_ATTEMPTS;
+  const delayMs = options.delayMs ?? CHEBI_RETRY_MS;
+  let lastError = /** @type {Error|null} */ (null);
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetchChebiCompound(chebiId);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+      }
+    }
+  }
+  throw lastError ?? new Error(`ChEBI compound ${chebiId} unavailable.`);
+}
 
 /**
  * @param {number|string} cid
@@ -152,6 +177,7 @@ export function evaluateHumanOccurrence(parts = {}) {
   const hmdbIds = [...new Set(parts.hmdbIds ?? [])];
   const chebiIds = [...new Set(parts.chebiIds ?? [])];
   const signals = parts.chebiSignals ?? [];
+  const chebiFetchErrors = [...(parts.chebiFetchErrors ?? [])];
 
   const humanRoles = unique(
     signals.flatMap((s) => s.humanRoles ?? []),
@@ -174,6 +200,14 @@ export function evaluateHumanOccurrence(parts = {}) {
     reason = "chebi_human";
   } else if (hmdbWithMammalianProxy) {
     reason = "hmdb_and_mammalian_proxy";
+  } else if (
+    !occursInHumans &&
+    chebiIds.length > 0 &&
+    signals.length === 0 &&
+    chebiFetchErrors.length > 0
+  ) {
+    // Linked ChEBI ids exist but every fetch failed — not the same as "no evidence".
+    reason = "chebi_unavailable";
   }
 
   return {
@@ -184,6 +218,7 @@ export function evaluateHumanOccurrence(parts = {}) {
     humanRoles,
     proxyRoles,
     humanOriginSources,
+    ...(chebiFetchErrors.length ? { chebiFetchErrors } : {}),
   };
 }
 
@@ -203,16 +238,25 @@ export async function verifyHumanOccurrence(cid) {
   ]);
 
   const chebiSignals = [];
+  const chebiFetchErrors = [];
   for (const id of chebiIds.slice(0, MAX_CHEBI_LOOKUPS)) {
     try {
-      const record = await fetchChebiCompound(id);
+      const record = await fetchChebiCompoundWithRetry(id);
       chebiSignals.push(extractChebiHumanSignals(record, id));
-    } catch {
+    } catch (err) {
       // Skip unreachable / missing ChEBI entries; other ids may still qualify.
+      // Track failures so callers can distinguish API outage from true negatives.
+      const detail = err instanceof Error ? err.message : "chebi_fetch_failed";
+      chebiFetchErrors.push(`CHEBI:${id}:${detail}`);
     }
   }
 
-  return evaluateHumanOccurrence({ hmdbIds, chebiIds, chebiSignals });
+  return evaluateHumanOccurrence({
+    hmdbIds,
+    chebiIds,
+    chebiSignals,
+    chebiFetchErrors,
+  });
 }
 
 function isHomoSapiensOrigin(origin) {

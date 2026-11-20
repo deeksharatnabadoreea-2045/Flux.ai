@@ -34,6 +34,8 @@ Implementation: `js/scientific-method.js`, `js/literature-verify.js`, and `file_
 
 **Citation provenance:** DOIs and PMIDs that appear outside **Observations (data in hand)** without also appearing there are treated as unverified (potential fabrication). Only official APIs (PubMed eutils, OpenAlex, PubChem, ChEBI/HMDB) may confirm identifiers — never invent study ids.
 
+**ChEBI availability:** If PubChem links ChEBI ids but ChEBI fetches fail, Flux records \`chebi_unavailable\` — that is **not** proof the compound is absent from humans. Retry; do not invent substitute citations.
+
 ## Other desks
 
 - **Scout** gathers leads — not proof.  
