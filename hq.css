@@ -102,6 +102,12 @@ button {
   display: block;
 }
 
+.mast-meta .deploy-release {
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
 .floor {
   flex: 1;
   display: grid;

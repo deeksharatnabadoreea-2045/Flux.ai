@@ -904,6 +904,15 @@ function bind() {
   }
 }
 
+function initDeployRelease() {
+  const meta = document.querySelector('meta[name="flux-deploy-stamp"]');
+  const el = document.getElementById("flux-deploy-release");
+  if (!meta || !el) return;
+  const stamp = meta.getAttribute("content")?.trim();
+  if (stamp) el.textContent = stamp;
+}
+
+initDeployRelease();
 bind();
 render();
 fetchAgentPoolHealth().then((health) => {

@@ -6,8 +6,7 @@ Production hosting for the Flux landing site and chat API. This is not a product
 
 | Item | Value |
 | --- | --- |
-| **Design reference (until owner picks otherwise)** | `https://flux-ai-3cdd.apps.grok.bot` (slug `flux-ai-3cdd`) |
-| **Also live (do not treat as a second product)** | `https://flux-ai.apps.grok.bot` (slug `flux-ai`) |
+| **Official production (only)** | `https://flux-ai-3cdd.apps.grok.bot` (slug `flux-ai-3cdd`) |
 | Host | Cursor Apps (`apps.grok.bot`) |
 | Framework | Static HTML + ES modules (no React/Next build) |
 | Build command | `npm run build` (applies SQL migrations when `DATABASE_URL` is set) |
@@ -15,9 +14,11 @@ Production hosting for the Flux landing site and chat API. This is not a product
 | Chat backend | Groq via `GROQ_API_KEY` (server-side only) |
 | Science data | PubChem + ChEBI/HMDB human-occurrence gate |
 
-**Dual deployment:** `flux-ai-3cdd` and `flux-ai` are **separate** Cursor Apps publishes of this same repo folder. Desktop and mobile for a given slug share one build (responsive CSS — no separate mobile site). Pick **one** slug as canonical production, republish only that slug, and stop using the other. Prefer consolidating on `flux-ai-3cdd` (design source of truth) unless the owner explicitly chooses `flux-ai` after confirming UI parity. Do not create a third app.
+**One responsive build, all devices:** Desktop, tablet, and phone use the **same** HTML/CSS/JS from this repo. Layout adapts via CSS breakpoints (`landing.css` ≤900px drawer sidebar; `hq.css` ≤960px stacked floor). There is **no** separate mobile deploy or device-specific HTML.
 
-Do **not** treat `https://flux-ai-bio.netlify.app` as production. That hostname may still resolve historically; it is obsolete for live inspect, SEO, and agent defaults.
+**Republish path:** After merges to `main`, owner **republishes** the existing Cursor App `flux-ai-3cdd` from the dashboard (not automatic on every `git push`). That single publish updates every device at once.
+
+**Not production** (do not bookmark, SEO, or agent-default these): `flux-ai.apps.grok.bot` (second Cursor slug), `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` (GitHub Pages), `https://flux-ai-bio.netlify.app` (legacy Netlify). They can serve stale or divergent copies.
 
 ## Public chat (required for ordinary visitors)
 
@@ -36,14 +37,12 @@ The GitHub repository is the **source of truth for code**, not a second producti
 
 | Host | Role |
 | --- | --- |
-| `https://flux-ai-3cdd.apps.grok.bot` | **Design reference** / recommended single production (Cursor Apps) |
-| `https://flux-ai.apps.grok.bot` | Second Cursor Apps publish — consolidate away after owner pick |
-| `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` | GitHub Pages static mirror — **not production** |
+| `https://flux-ai-3cdd.apps.grok.bot` | **Production** (Cursor Apps) |
+| `https://flux-ai.apps.grok.bot` | Obsolete second slug — **not production** |
+| `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` | GitHub Pages mirror — **not production** |
 | `https://flux-ai-bio.netlify.app` | Legacy Netlify — **not production** |
 
-There is **no** separate mobile deploy URL. For whichever slug is canonical, desktop and mobile use that same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
-
-**Deploy verification:** `index.html` carries `flux-deploy-sha` / `flux-deploy-stamp`; `GET /api/chat` returns `deployStamp` / `publicChat: true`.
+**Deploy verification:** `index.html` and `hq.html` carry matching `flux-deploy-sha` / `flux-deploy-stamp` meta tags; the landing footer and HQ mast show the same **release ID** on every viewport. Static assets use `?v=<STATIC_CACHE_BUST>` from `js/deploy-revision.js`. `GET /api/chat` returns `deployStamp` / `publicChat: true`.
 
 Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages or change Netlify settings without Deeksharatna’s approval. Visibility must be **Public** for anonymous chat; that change is owner-controlled in Publish Settings.
 

@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=responsive-restore-1";
-import { initLandingChat } from "./landing-chat.js?v=responsive-restore-1";
+import { ACCESS } from "./access-config.js?v=cross-device-parity-1";
+import { initLandingChat } from "./landing-chat.js?v=cross-device-parity-1";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
@@ -76,6 +76,14 @@ function initSidebar() {
   }
 }
 
+function initDeployRelease() {
+  const meta = document.querySelector('meta[name="flux-deploy-stamp"]');
+  const el = document.getElementById("flux-deploy-release");
+  if (!meta || !el) return;
+  const stamp = meta.getAttribute("content")?.trim();
+  if (stamp) el.textContent = stamp;
+}
+
 function initAccess() {
   const openBtn = document.getElementById("access-open");
   const dialog = document.getElementById("access-dialog");
@@ -104,5 +112,6 @@ function initAccess() {
 initGreeting();
 initChatListToggle();
 initSidebar();
+initDeployRelease();
 initAccess();
 initLandingChat();
