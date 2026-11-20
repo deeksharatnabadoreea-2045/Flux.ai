@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js";
-import { initLandingChat } from "./landing-chat.js";
+import { ACCESS } from "./access-config.js?v=prod-2026-11-20-redeploy";
+import { initLandingChat } from "./landing-chat.js?v=prod-2026-11-20-redeploy";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";

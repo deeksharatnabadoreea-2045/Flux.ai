@@ -29,6 +29,19 @@ function event(overrides = {}) {
   };
 }
 
+test("Netlify chat is disabled when CURSOR_APP_ID is set", async () => {
+  const prev = process.env.CURSOR_APP_ID;
+  process.env.CURSOR_APP_ID = "test-app";
+  try {
+    const res = await handler(event());
+    assert.equal(res.statusCode, 410);
+    assert.match(res.body, /legacy_netlify_disabled/);
+  } finally {
+    if (prev === undefined) delete process.env.CURSOR_APP_ID;
+    else process.env.CURSOR_APP_ID = prev;
+  }
+});
+
 test("Netlify chat rejects requests without browser Origin", async () => {
   delete process.env.GROQ_API_KEY;
   const res = await handler(
