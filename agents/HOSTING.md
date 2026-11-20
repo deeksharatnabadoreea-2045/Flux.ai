@@ -1,6 +1,6 @@
 # 24/7 desk agents (Flux runtime root)
 
-**Website production:** [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) (Cursor Apps). Desk agents and live-site inspect/test must use that URL — not the legacy Netlify hostname.
+**Website production:** [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) (Cursor Apps). Desk agents and live-site inspect/test must use that URL — not GitHub Pages (`*.github.io`) and not the legacy Netlify hostname. GitHub is source only; there is no separate mobile deploy.
 
 Flux.ai is built around **always-on Agent SDK workers**, not static playbooks. The HQ floor is the orchestrator console; each desk is a deployable agent with:
 

@@ -56,7 +56,7 @@ npm start          # static HQ only — no live pool
 
 Open http://127.0.0.1:4173 for the landing conversational assistant (Groq on the server via `GROQ_API_KEY`; PubChem molecule facts + ChEBI/HMDB gate), or http://127.0.0.1:4173/hq.html for the company floor.
 
-**Production:** [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) (Cursor Apps, slug `flux-ai`). Do not use `https://flux-ai-bio.netlify.app` as production.
+**Production:** [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) (Cursor Apps, slug `flux-ai`). GitHub is source only — do not treat GitHub Pages (`*.github.io`) or `https://flux-ai-bio.netlify.app` as production. One responsive URL for desktop and mobile (no separate mobile host).
 
 **Chat API:** `POST /api/chat` — Cursor Apps route `api/chat.js` (signed-in viewer + rate limit) and local `npm run dev`. The browser never sees `GROQ_API_KEY`. Legacy Netlify function code remains for tests only — see [`docs/CURSOR-APPS-HOSTING.md`](docs/CURSOR-APPS-HOSTING.md).
 

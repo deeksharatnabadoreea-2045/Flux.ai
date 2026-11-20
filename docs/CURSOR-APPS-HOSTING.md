@@ -17,6 +17,20 @@ Production hosting for the Flux landing site and chat API. This is not a product
 
 Do **not** treat `https://flux-ai-bio.netlify.app` as production. That hostname may still resolve historically; it is obsolete for live inspect, SEO, and agent defaults.
 
+## GitHub is source only
+
+The GitHub repository is the **source of truth for code**, not a second production host.
+
+| Host | Role |
+| --- | --- |
+| `https://flux-ai.apps.grok.bot` | **Production** (Cursor Apps) |
+| `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` | GitHub Pages static mirror — **not production** |
+| `https://flux-ai-bio.netlify.app` | Legacy Netlify — **not production** |
+
+There is **no** separate mobile deploy URL. Desktop and mobile use the same Cursor Apps origin; layout adapts via CSS (`landing.css` breakpoints, e.g. `@media (max-width: 900px)`).
+
+Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages, change Pages/Netlify settings, or change Cursor Apps visibility without Deeksharatna’s approval.
+
 ## Cursor Apps (current)
 
 | Piece | Path |
@@ -36,6 +50,12 @@ The browser only calls same-origin `POST /api/chat`. It never receives the key.
 1. Set `GROQ_API_KEY` in the environment (or Cursor secrets for hosted runs).
 2. Run `npm run dev` and open http://127.0.0.1:4173.
 3. Chat health: authenticated `GET /api/chat` on Cursor Apps; local HQ serves the same route via the Node proxy.
+
+## Publish / update path
+
+Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud agent / Apps dashboard **publish** (or republish); first publish and visibility changes wait for owner confirmation. Updates may republish when automatic updates are allowed — still not a GitHub Actions deploy of this site.
+
+This repo has **no** custom `.github/workflows` deploy. GitHub’s built-in `pages-build-deployment` may refresh the github.io mirror when Pages is enabled; that mirror is not production.
 
 ## Legacy Netlify (not production)
 
