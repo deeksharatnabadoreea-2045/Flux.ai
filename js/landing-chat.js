@@ -195,7 +195,7 @@ async function handleSubmit(event) {
   } catch (err) {
     const message =
       err instanceof TypeError
-        ? "Could not reach the chat service. Deploy with Netlify Functions or run npm run dev."
+        ? "Could not reach the chat service. Open the Cursor Apps deployment or run npm run dev."
         : err?.message || "Chat failed.";
     chat.messages.push({ role: "assistant", content: message });
     saveStore(store);

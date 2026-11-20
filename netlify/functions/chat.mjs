@@ -1,8 +1,8 @@
 /**
- * Netlify Function: conversational science chat via Groq.
- * Uses GROQ_API_KEY from Netlify environment variables (server-side only).
+ * Legacy Netlify Function (tests / historical only — production is Cursor Apps).
+ * Conversational science chat via Groq. Uses GROQ_API_KEY server-side only.
  *
- * Public to same-origin Flux visitors (browser Origin/Referer must match Host).
+ * Public to same-origin visitors (browser Origin/Referer must match Host).
  * Rate-limited per client IP; payloads validated before any provider call.
  */
 

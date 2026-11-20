@@ -3,7 +3,7 @@
  * Requires a verified Cursor app viewer (private/team sign-in).
  * GROQ_API_KEY stays in process.env (server only). Rate-limited per viewer.
  *
- * Netlify keeps a separate same-origin + rate-limited function for cutover.
+ * Legacy Netlify function (`netlify/functions/chat.mjs`) remains for tests only — production is Cursor Apps.
  */
 
 import { requireIdentity } from "../cursor/identity.js";
