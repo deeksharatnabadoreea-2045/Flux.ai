@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/trusted-sources.test.js js/scientific-method.test.js js/literature-verify.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js js/human-molecule.test.js js/science-chat.test.js js/chat-guard.test.js js/netlify-chat.test.js",
+    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/trusted-sources.test.js js/scientific-method.test.js js/literature-verify.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js js/human-molecule.test.js js/science-chat.test.js js/chat-guard.test.js js/netlify-chat.test.js js/chat-visitor.test.js js/chat-rate-store.test.js js/public-chat-api.test.js",
+    "test:playwright": "npx playwright test",
+    "build": "node scripts/migrate.mjs",
     "engine:replay-stub": "node engine/harness/replay-stub.mjs",
     "sources:sync": "node -e \"import('./js/linked-sources-sync.mjs').then(m=>m.syncLinkedSources('.')).then(x=>console.log(JSON.stringify(x,null,2)))\"",
     "agents:validate": "node scripts/deploy-all-desks.mjs",
@@ -14,5 +16,12 @@
     "scout:validate": "npx --yes @grok/agent-sdk@0.5.0 validate --dir agents/scout",
     "scout:check": "npm run check --prefix agents/scout",
     "agents:scaffold": "node scripts/scaffold-desk-agents.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
   }
 }
