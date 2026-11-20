@@ -97,6 +97,62 @@ test("handleScienceChat falls back when preferred Groq model is retired", async 
 
 test("pubchemOnlyReply returns glucose facts without Groq", async () => {
   delete process.env.GROQ_API_KEY;
+  // Deterministic stubs — live PubChem/NCBI is too flaky for unit CI.
+  globalThis.fetch = async (url) => {
+    const href = String(url);
+    if (href.includes("/property/MolecularFormula")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          PropertyTable: {
+            Properties: [
+              { CID: 5793, MolecularFormula: "C6H12O6", MolecularWeight: "180.16" },
+            ],
+          },
+        }),
+      };
+    }
+    if (href.includes("/synonyms/JSON")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          InformationList: {
+            Information: [{ CID: 5793, Synonym: ["CHEBI:17234"] }],
+          },
+        }),
+      };
+    }
+    if (href.includes("heading=HMDB%20ID")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          Record: {
+            Section: [
+              {
+                Information: [
+                  { Value: { StringWithMarkup: [{ String: "HMDB0000122" }] } },
+                ],
+              },
+            ],
+          },
+        }),
+      };
+    }
+    if (href.includes("/chebi/backend/api/public/compound/17234/")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          roles_classification: { name: "human metabolite" },
+          compound_origins: [],
+        }),
+      };
+    }
+    throw new Error(`unexpected fetch in pubchemOnlyReply test: ${href}`);
+  };
   const result = await pubchemOnlyReply("glucose");
   assert.ok(result.molecule);
   assert.equal(result.molecule.formula, "C6H12O6");

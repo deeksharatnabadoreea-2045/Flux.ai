@@ -73,6 +73,62 @@ test("Netlify chat rejects cross-site Origin", async () => {
 
 test("Netlify chat serves same-origin visitors (PubChem fallback)", async () => {
   delete process.env.GROQ_API_KEY;
+  // Stub PubChem / ChEBI / HMDB so CI is not flaky on NCBI latency.
+  globalThis.fetch = async (url) => {
+    const href = String(url);
+    if (href.includes("/property/MolecularFormula")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          PropertyTable: {
+            Properties: [
+              { CID: 5793, MolecularFormula: "C6H12O6", MolecularWeight: "180.16" },
+            ],
+          },
+        }),
+      };
+    }
+    if (href.includes("/synonyms/JSON")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          InformationList: {
+            Information: [{ CID: 5793, Synonym: ["CHEBI:17234"] }],
+          },
+        }),
+      };
+    }
+    if (href.includes("heading=HMDB%20ID")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          Record: {
+            Section: [
+              {
+                Information: [
+                  { Value: { StringWithMarkup: [{ String: "HMDB0000122" }] } },
+                ],
+              },
+            ],
+          },
+        }),
+      };
+    }
+    if (href.includes("/chebi/backend/api/public/compound/17234/")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          roles_classification: { name: "human metabolite" },
+          compound_origins: [],
+        }),
+      };
+    }
+    throw new Error(`unexpected fetch in netlify chat test: ${href}`);
+  };
   const res = await handler(event());
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);

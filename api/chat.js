@@ -34,6 +34,26 @@ function json(status, body, extraHeaders = {}) {
 }
 
 /**
+ * True when the request carries a browser Origin or Referer.
+ * Bare ops probes (curl without those headers) should not mint visitor cookies.
+ * @param {Headers | Record<string, string | undefined> | null | undefined} headers
+ */
+function hasBrowserOrigin(headers) {
+  if (!headers) return false;
+  const get = (name) => {
+    if (typeof headers.get === "function") {
+      return String(headers.get(name) ?? headers.get(name.toLowerCase()) ?? "").trim();
+    }
+    const lower = name.toLowerCase();
+    for (const [k, v] of Object.entries(headers)) {
+      if (String(k).toLowerCase() === lower) return String(v ?? "").trim();
+    }
+    return "";
+  };
+  return Boolean(get("origin") || get("referer"));
+}
+
+/**
  * @param {Response} response
  * @param {string | null} setCookie
  */
@@ -50,16 +70,21 @@ function withVisitorCookie(response, setCookie) {
 
 export async function GET(request) {
   const originGate = assertChatBrowserOrigin(request.headers);
-  // Health may be polled same-origin; still reject obvious cross-site probes.
+  // Health may be polled same-origin or by ops without Origin; still reject
+  // obvious cross-site probes. Never consume the POST rate-limit budget.
   if (!originGate.ok && originGate.error === "origin_forbidden") {
     return json(403, { ok: false, error: originGate.error });
   }
 
   const identity = await getIdentity(request);
-  const session = ensureVisitorSession(request);
+  // Only mint/refresh visitor cookies for real browser traffic.
+  const session = hasBrowserOrigin(request.headers)
+    ? ensureVisitorSession(request)
+    : { visitorId: null, setCookie: null };
   const health = {
     ...chatHealth(),
     publicChat: true,
+    route: "/api/chat",
     signedIn: Boolean(identity.verified),
     deployRevision: DEPLOY_REVISION,
     deployRevisionShort: DEPLOY_REVISION_SHORT,
