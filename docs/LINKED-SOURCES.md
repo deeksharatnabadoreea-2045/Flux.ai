@@ -6,7 +6,7 @@ See [FACTORY.md](./FACTORY.md) for build-phase rules (ingest first, Validator ga
 
 ## Add a site
 
-1. Run `npm run dev` (fetch runs on the Node proxy, not on static Netlify alone).
+1. Run `npm run dev` (fetch runs on the Node proxy; static-only hosts cannot sync).
 2. On the HQ left rail, **Linked websites** → paste URL → **Link site**.
 3. Click **Sync now** (or wait for the automatic sync every 4 hours).
 

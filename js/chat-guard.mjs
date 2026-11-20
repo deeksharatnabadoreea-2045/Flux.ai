@@ -1,6 +1,6 @@
 /**
  * Server-side chat guards: rate limits, payload validation, same-origin checks.
- * Used by Cursor Apps (`api/chat.js`), Netlify (`netlify/functions/chat.mjs`), and local HQ.
+ * Used by Cursor Apps (`api/chat.js`), local HQ, and the legacy Netlify function (tests only).
  */
 
 const WINDOW_MS = 5 * 60 * 1000;
