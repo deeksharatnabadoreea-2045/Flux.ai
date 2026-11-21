@@ -3,18 +3,23 @@ import { afterEach, test } from "node:test";
 import { POST, GET } from "../api/chat.js";
 import { ANON_MAX_REQUESTS, resetRateStoreMemory } from "./chat-rate-store.mjs";
 import { resetLocalDatabase } from "./db.mjs";
-import {
-  ensureVisitorSession,
-  resolveAnonymousVisitorKey,
-} from "./chat-visitor.mjs";
+import { resolveAnonymousVisitorKey } from "./chat-visitor.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.GROQ_API_KEY;
 const originalAppId = process.env.CURSOR_APP_ID;
+const originalSecret = process.env.CHAT_SESSION_SECRET;
+const originalDb = process.env.DATABASE_URL;
 
 /** Official production host (Cursor Apps slug flux-ai-3cdd). */
 const PROD_HOST = "flux-ai-3cdd.apps.grok.bot";
 const PROD_ORIGIN = `https://${PROD_HOST}`;
+
+function enablePublishedChatEnv() {
+  process.env.CURSOR_APP_ID = "app_public_test";
+  process.env.CHAT_SESSION_SECRET = "unit-public-chat-secret";
+  process.env.DATABASE_URL = "pglite://public-chat-api";
+}
 
 afterEach(async () => {
   globalThis.fetch = originalFetch;
@@ -22,6 +27,10 @@ afterEach(async () => {
   else process.env.GROQ_API_KEY = originalKey;
   if (originalAppId === undefined) delete process.env.CURSOR_APP_ID;
   else process.env.CURSOR_APP_ID = originalAppId;
+  if (originalSecret === undefined) delete process.env.CHAT_SESSION_SECRET;
+  else process.env.CHAT_SESSION_SECRET = originalSecret;
+  if (originalDb === undefined) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = originalDb;
   resetRateStoreMemory();
   await resetLocalDatabase();
 });
@@ -92,7 +101,7 @@ function chatRequest(body, headers = {}) {
       "content-type": "application/json",
       host: PROD_HOST,
       origin: PROD_ORIGIN,
-      "x-forwarded-for": "203.0.113.50",
+      "x-vercel-forwarded-for": "203.0.113.50",
       ...headers,
     },
     body: JSON.stringify(body),
@@ -101,8 +110,7 @@ function chatRequest(body, headers = {}) {
 
 test("public POST allows anonymous same-origin chat without Cursor identity", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
-  process.env.CHAT_SESSION_SECRET = "unit-public-chat-secret";
+  enablePublishedChatEnv();
   mockGlucoseLookupFetch();
 
   const res = await POST(
@@ -115,12 +123,11 @@ test("public POST allows anonymous same-origin chat without Cursor identity", as
   assert.equal(data.ok, true);
   assert.ok(String(data.reply || "").length > 10);
   assert.doesNotMatch(JSON.stringify(data), /gsk_|GROQ_API_KEY|sk-[a-zA-Z0-9]/);
-  const setCookie = res.headers.get("set-cookie") || "";
-  assert.match(setCookie, /flux_vid=/);
+  assert.equal(res.headers.get("set-cookie"), null, "POST does not mint flux_vid");
 });
 
 test("public POST rejects cross-site Origin", async () => {
-  process.env.CURSOR_APP_ID = "app_public_test";
+  enablePublishedChatEnv();
   const res = await POST(
     chatRequest(
       { messages: [{ role: "user", content: "hi" }] },
@@ -134,7 +141,7 @@ test("public POST rejects cross-site Origin", async () => {
 
 test("public GET health reports publicChat without secrets", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
+  enablePublishedChatEnv();
   const res = await GET(
     new Request(`${PROD_ORIGIN}/api/chat`, {
       headers: {
@@ -157,7 +164,7 @@ test("public GET health reports publicChat without secrets", async () => {
 
 test("public GET health without Origin skips visitor cookie mint", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
+  enablePublishedChatEnv();
   const res = await GET(
     new Request(`${PROD_ORIGIN}/api/chat`, {
       headers: { host: PROD_HOST },
@@ -171,29 +178,26 @@ test("public GET health without Origin skips visitor cookie mint", async () => {
   assert.equal(res.headers.get("set-cookie"), null);
 });
 
-test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucket", async () => {
+test("ten anonymous POSTs same IP with different UA share one visitor rate bucket", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
-  process.env.CHAT_SESSION_SECRET = "unit-public-chat-secret";
+  enablePublishedChatEnv();
   mockGlucoseLookupFetch();
 
-  const postHeaders = {
-    "x-forwarded-for": "203.0.113.10",
-    "user-agent": "FluxAnonymousBucketTest/1.0",
-  };
+  const ip = "203.0.113.10";
   const env = {
     CHAT_SESSION_SECRET: process.env.CHAT_SESSION_SECRET,
     CURSOR_APP_ID: process.env.CURSOR_APP_ID,
   };
-  const reqShape = { headers: postHeaders };
 
   const visitorKeys = new Set();
-  const mintedVisitorIds = new Set();
   for (let i = 0; i < 10; i += 1) {
-    const session = ensureVisitorSession(reqShape, { env, secureCookie: false });
-    assert.equal(session.minted, true);
-    mintedVisitorIds.add(session.visitorId);
-    visitorKeys.add(resolveAnonymousVisitorKey(reqShape, undefined, { env }));
+    const postHeaders = {
+      "x-vercel-forwarded-for": ip,
+      "user-agent": `SyntheticVisitor/${i}`,
+    };
+    visitorKeys.add(
+      resolveAnonymousVisitorKey({ headers: postHeaders }, undefined, { env }),
+    );
 
     const res = await POST(
       chatRequest(
@@ -203,9 +207,9 @@ test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucke
     );
     assert.equal(res.status, 200, `POST ${i + 1}`);
   }
-  assert.equal(visitorKeys.size, 1, "all fresh sessions must map to one rate bucket");
-  assert.equal(mintedVisitorIds.size, 1, "deterministic flux_vid per IP+UA without cookie");
+  assert.equal(visitorKeys.size, 1, "IP-only bucket — UA rotation cannot reset limits");
 
+  const postHeaders = { "x-vercel-forwarded-for": ip, "user-agent": "FluxCapTest/1.0" };
   for (let i = 10; i < ANON_MAX_REQUESTS; i += 1) {
     const res = await POST(
       chatRequest(
@@ -229,14 +233,13 @@ test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucke
 
 test("public GET health does not burn POST rate budget", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
-  process.env.CHAT_SESSION_SECRET = "unit-public-chat-secret";
+  enablePublishedChatEnv();
   mockGlucoseLookupFetch();
 
   const headers = {
     host: PROD_HOST,
     origin: PROD_ORIGIN,
-    "x-forwarded-for": "203.0.113.77",
+    "x-vercel-forwarded-for": "203.0.113.77",
   };
   for (let i = 0; i < 40; i += 1) {
     const health = await GET(
@@ -247,7 +250,7 @@ test("public GET health does not burn POST rate budget", async () => {
   const post = await POST(
     chatRequest(
       { messages: [{ role: "user", content: "glucose" }] },
-      { "x-forwarded-for": "203.0.113.77" },
+      { "x-vercel-forwarded-for": "203.0.113.77" },
     ),
   );
   assert.equal(post.status, 200);
@@ -257,7 +260,7 @@ test("public GET health does not burn POST rate budget", async () => {
 
 test("missing Groq key still returns a safe molecule fallback reply", async () => {
   delete process.env.GROQ_API_KEY;
-  process.env.CURSOR_APP_ID = "app_public_test";
+  enablePublishedChatEnv();
   mockGlucoseLookupFetch();
   const res = await POST(
     chatRequest({ messages: [{ role: "user", content: "glucose" }] }),

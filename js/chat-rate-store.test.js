@@ -72,11 +72,13 @@ test("global anonymous daily cap blocks after threshold", async () => {
   process.env.CHAT_GLOBAL_ANON_DAILY_MAX = "3";
   const ipKey = `ip:203.0.113.${Math.floor(Math.random() * 200)}`;
 
+  process.env.DATABASE_URL = "pglite://rate-store-global";
   for (let i = 0; i < 3; i += 1) {
     const r = await enforceChatRateLimits({
       visitorKey: `anon:global-test-${i}-${Date.now()}`,
       ipKey: `ip:198.51.100.${i}`,
       signedIn: false,
+      env: process.env,
     });
     assert.equal(r.allowed, true, `request ${i + 1}`);
   }
@@ -84,6 +86,7 @@ test("global anonymous daily cap blocks after threshold", async () => {
     visitorKey: `anon:global-block-${Date.now()}`,
     ipKey,
     signedIn: false,
+    env: process.env,
   });
   assert.equal(blocked.allowed, false);
   assert.equal(blocked.scope, "global_daily");

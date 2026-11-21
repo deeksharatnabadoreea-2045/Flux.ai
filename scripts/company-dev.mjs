@@ -23,11 +23,8 @@ import {
   validateChatPayload,
 } from "../js/chat-guard.mjs";
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
-import {
-  ensureVisitorSession,
-  resolveAnonymousVisitorKey,
-  trustedClientKey,
-} from "../js/chat-visitor.mjs";
+import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
+import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-visitor.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
@@ -303,10 +300,8 @@ function jsonHeaders(extra = {}) {
   };
 }
 
-function writeChatJson(res, status, body, setCookie, extraHeaders = {}) {
-  const headers = jsonHeaders(extraHeaders);
-  if (setCookie) headers["set-cookie"] = setCookie;
-  res.writeHead(status, headers);
+function writeChatJson(res, status, body, extraHeaders = {}) {
+  res.writeHead(status, jsonHeaders(extraHeaders));
   res.end(JSON.stringify(body));
 }
 
@@ -330,7 +325,23 @@ async function handlePublicChat(req, res) {
   const ipKey = trustedClientKey(req);
 
   if (req.method === "GET") {
-    writeChatJson(res, 200, { ...chatHealth(), publicChat: true, signedIn }, null);
+    writeChatJson(res, 200, {
+      ...chatHealth(),
+      publicChat: true,
+      route: "/api/chat",
+      signedIn,
+    });
+    return;
+  }
+
+  if (req.method !== "POST") {
+    writeChatJson(res, 405, { ok: false, error: "method_not_allowed" });
+    return;
+  }
+
+  const preflight = preflightAnonymousChatPost(req, { signedIn });
+  if (!preflight.ok) {
+    writeChatJson(res, preflight.status, { ok: false, error: preflight.error });
     return;
   }
 
@@ -338,13 +349,15 @@ async function handlePublicChat(req, res) {
     ? `user:${identity.sub || identity.userId || "viewer"}`
     : resolveAnonymousVisitorKey(req);
 
-  if (req.method !== "POST") {
-    writeChatJson(res, 405, { ok: false, error: "method_not_allowed" }, null);
-    return;
-  }
-
   const rate = await enforceChatRateLimits({ visitorKey, ipKey, signedIn });
   if (!rate.allowed) {
+    if (rate.failClosed) {
+      writeChatJson(res, 503, {
+        ok: false,
+        error: rate.error ?? "rate_store_unavailable",
+      });
+      return;
+    }
     writeChatJson(
       res,
       429,
@@ -354,34 +367,31 @@ async function handlePublicChat(req, res) {
         retryAfterSec: rate.retryAfterSec,
         scope: rate.scope,
       },
-      null,
       { "retry-after": String(rate.retryAfterSec) },
     );
     return;
   }
 
-  const session = ensureVisitorSession(req, { secureCookie: false });
-
   let raw = "";
   for await (const chunk of req) raw += chunk;
   if (raw.length > MAX_CHAT_BODY_BYTES) {
-    writeChatJson(res, 413, { ok: false, error: "body_too_large" }, session.setCookie);
+    writeChatJson(res, 413, { ok: false, error: "body_too_large" });
     return;
   }
   try {
     const payload = JSON.parse(raw || "{}");
     const validated = validateChatPayload(payload);
     if (!validated.ok) {
-      writeChatJson(res, 400, { ok: false, error: validated.error }, session.setCookie);
+      writeChatJson(res, 400, { ok: false, error: validated.error });
       return;
     }
     const result = await handleScienceChat(validated.value);
     delete result.apiKey;
     delete result.GROQ_API_KEY;
     const status = result.status ?? (result.ok ? 200 : 500);
-    writeChatJson(res, status, result, session.setCookie);
+    writeChatJson(res, status, result);
   } catch {
-    writeChatJson(res, 500, { ok: false, error: "chat_failed" }, session.setCookie);
+    writeChatJson(res, 500, { ok: false, error: "chat_failed" });
   }
 }
 

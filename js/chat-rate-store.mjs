@@ -3,6 +3,7 @@
  * Also keeps a process-local Map as a fast path that mirrors durable writes.
  */
 import { sql, usingDurableDatabase } from "./db.mjs";
+import { isPublishedChatApp } from "./chat-security.mjs";
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
 const memory = new Map();
@@ -27,11 +28,21 @@ export const GLOBAL_ANON_DAILY_MAX = 5_000;
  */
 export function resolveGlobalAnonDailyMax(env = process.env) {
   const raw = String(env.CHAT_GLOBAL_ANON_DAILY_MAX ?? "").trim();
+  let cap = GLOBAL_ANON_DAILY_MAX;
   if (raw) {
     const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+    if (Number.isFinite(n) && n > 0) cap = Math.floor(n);
   }
-  return GLOBAL_ANON_DAILY_MAX;
+  return Math.min(cap, GLOBAL_ANON_DAILY_MAX);
+}
+
+/** @returns {{ ok: false, failClosed: true, error: string } | null} */
+function durableRequiredOrFail(env = process.env) {
+  if (!isPublishedChatApp(env)) return null;
+  if (!usingDurableDatabase()) {
+    return { ok: false, failClosed: true, error: "rate_store_unavailable" };
+  }
+  return null;
 }
 
 function dayKey() {
@@ -107,8 +118,19 @@ function consumeMemory(key, opts) {
  * @param {string} key
  * @param {{ limit: number, windowMs: number }} opts
  */
-export async function consumeRateLimit(key, opts) {
+export async function consumeRateLimit(key, opts, env = process.env) {
   const id = String(key || "anonymous").slice(0, 200);
+  const requireDurable = durableRequiredOrFail(env);
+  if (requireDurable) {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSec: 0,
+      count: opts.limit + 1,
+      failClosed: true,
+      error: requireDurable.error,
+    };
+  }
   if (usingDurableDatabase()) {
     try {
       const durable = await consumeDurable(id, opts);
@@ -120,9 +142,15 @@ export async function consumeRateLimit(key, opts) {
       return durable;
     } catch (err) {
       console.error("[chat-rate-store] durable_failed", String(err?.message ?? err).slice(0, 200));
-      // Fail closed for abuse protection if durable store errors in production.
-      if (process.env.CURSOR_APP_ID) {
-        return { allowed: false, remaining: 0, retryAfterSec: 30, count: opts.limit + 1 };
+      if (isPublishedChatApp(env)) {
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfterSec: 0,
+          count: opts.limit + 1,
+          failClosed: true,
+          error: "rate_store_unavailable",
+        };
       }
     }
   }
@@ -135,9 +163,11 @@ export async function consumeRateLimit(key, opts) {
  *   visitorKey: string,
  *   ipKey: string,
  *   signedIn: boolean,
+ *   env?: NodeJS.ProcessEnv,
  * }} input
  */
 export async function enforceChatRateLimits(input) {
+  const env = input.env ?? process.env;
   const windowLimit = input.signedIn
     ? { limit: AUTH_MAX_REQUESTS, windowMs: AUTH_WINDOW_MS }
     : { limit: ANON_MAX_REQUESTS, windowMs: ANON_WINDOW_MS };
@@ -146,54 +176,80 @@ export async function enforceChatRateLimits(input) {
     windowMs: 24 * 60 * 60 * 1000,
   };
 
+  /** @param {{ failClosed?: boolean, error?: string, retryAfterSec?: number }} r */
+  const failFrom = (r, scope) => {
+    if (r.failClosed) {
+      return {
+        allowed: false,
+        retryAfterSec: 0,
+        scope,
+        failClosed: true,
+        error: r.error ?? "rate_store_unavailable",
+      };
+    }
+    return { allowed: false, retryAfterSec: r.retryAfterSec, scope };
+  };
+
   /** @type {{ remaining: number } | null} */
   let globalDaily = null;
   if (!input.signedIn) {
-    globalDaily = await consumeRateLimit(`global:anon:day:${dayKey()}`, {
-      limit: resolveGlobalAnonDailyMax(),
-      windowMs: 24 * 60 * 60 * 1000,
-    });
+    globalDaily = await consumeRateLimit(
+      `global:anon:day:${dayKey()}`,
+      {
+        limit: resolveGlobalAnonDailyMax(env),
+        windowMs: 24 * 60 * 60 * 1000,
+      },
+      env,
+    );
     if (!globalDaily.allowed) {
-      return {
-        allowed: false,
-        retryAfterSec: globalDaily.retryAfterSec,
-        scope: "global_daily",
-      };
+      return failFrom(globalDaily, "global_daily");
     }
   }
 
-  const visitor = await consumeRateLimit(`v:${input.visitorKey}`, windowLimit);
+  const visitor = await consumeRateLimit(`v:${input.visitorKey}`, windowLimit, env);
   if (!visitor.allowed) {
-    return { allowed: false, retryAfterSec: visitor.retryAfterSec, scope: "visitor" };
+    return failFrom(visitor, "visitor");
   }
 
-  const ip = await consumeRateLimit(`ip:${input.ipKey}`, {
-    limit: IP_MAX_REQUESTS,
-    windowMs: IP_WINDOW_MS,
-  });
+  const ip = await consumeRateLimit(
+    `ip:${input.ipKey}`,
+    {
+      limit: IP_MAX_REQUESTS,
+      windowMs: IP_WINDOW_MS,
+    },
+    env,
+  );
   if (!ip.allowed) {
-    return { allowed: false, retryAfterSec: ip.retryAfterSec, scope: "ip" };
+    return failFrom(ip, "ip");
   }
 
-  const ipDaily = await consumeRateLimit(`ipday:${dayKey()}:${input.ipKey}`, {
-    limit: IP_DAILY_MAX,
-    windowMs: 24 * 60 * 60 * 1000,
-  });
+  const ipDaily = await consumeRateLimit(
+    `ipday:${dayKey()}:${input.ipKey}`,
+    {
+      limit: IP_DAILY_MAX,
+      windowMs: 24 * 60 * 60 * 1000,
+    },
+    env,
+  );
   if (!ipDaily.allowed) {
-    return { allowed: false, retryAfterSec: ipDaily.retryAfterSec, scope: "ip_daily" };
+    return failFrom(ipDaily, "ip_daily");
   }
 
-  const ipMonthly = await consumeRateLimit(`ipmon:${monthKey()}:${input.ipKey}`, {
-    limit: IP_MONTHLY_MAX,
-    windowMs: 31 * 24 * 60 * 60 * 1000,
-  });
+  const ipMonthly = await consumeRateLimit(
+    `ipmon:${monthKey()}:${input.ipKey}`,
+    {
+      limit: IP_MONTHLY_MAX,
+      windowMs: 31 * 24 * 60 * 60 * 1000,
+    },
+    env,
+  );
   if (!ipMonthly.allowed) {
-    return { allowed: false, retryAfterSec: ipMonthly.retryAfterSec, scope: "ip_monthly" };
+    return failFrom(ipMonthly, "ip_monthly");
   }
 
-  const daily = await consumeRateLimit(`day:${dayKey()}:${input.visitorKey}`, dailyLimit);
+  const daily = await consumeRateLimit(`day:${dayKey()}:${input.visitorKey}`, dailyLimit, env);
   if (!daily.allowed) {
-    return { allowed: false, retryAfterSec: daily.retryAfterSec, scope: "daily" };
+    return failFrom(daily, "daily");
   }
 
   return {
