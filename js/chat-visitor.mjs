@@ -57,15 +57,27 @@ export function stableAnonymousVisitorId(request, opts = {}) {
 }
 
 /**
+ * Format a 32-char stable hex digest as a UUID v4-style string (valid for flux_vid).
+ * @param {string} stableHex32
+ */
+export function stableIdToVisitorUuid(stableHex32) {
+  const h = String(stableHex32).replace(/[^0-9a-f]/gi, "").padEnd(32, "0").slice(0, 32);
+  const bytes = Buffer.from(h, "hex");
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/**
  * Postgres/memory visitor bucket key for anonymous chat.
+ * Always uses stableAnonymousVisitorId (IP + trusted IP + UA HMAC) — never flux_vid,
+ * so a fresh cookie or per-request UUID cannot reset rate buckets.
  * @param {Request | { headers: Headers | Record<string, string | undefined> }} request
- * @param {{ visitorId: string, minted: boolean }} session
+ * @param {{ visitorId?: string, minted?: boolean }} [_session]
  * @param {{ env?: NodeJS.ProcessEnv }} [opts]
  */
-export function resolveAnonymousVisitorKey(request, session, opts = {}) {
-  if (!session.minted) {
-    return `anon:${session.visitorId}`;
-  }
+export function resolveAnonymousVisitorKey(request, _session, opts = {}) {
   return `anon:${stableAnonymousVisitorId(request, opts)}`;
 }
 
@@ -218,7 +230,8 @@ export function ensureVisitorSession(request, opts = {}) {
     };
   }
 
-  const minted = mintVisitorToken(randomUUID(), secret);
+  const stable = stableAnonymousVisitorId(request, { env });
+  const minted = mintVisitorToken(stableIdToVisitorUuid(stable), secret);
   const secure =
     opts.secureCookie ??
     Boolean(String(env.CURSOR_APP_ID ?? "").trim() || env.VERCEL || env.NETLIFY);

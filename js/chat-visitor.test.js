@@ -6,6 +6,7 @@ import {
   resolveAnonymousVisitorKey,
   resolveSessionSecret,
   stableAnonymousVisitorId,
+  stableIdToVisitorUuid,
   trustedClientKey,
   verifyVisitorToken,
   VISITOR_COOKIE,
@@ -97,7 +98,7 @@ test("ensureVisitorSession without CHAT_SESSION_SECRET on app does not mint cook
   assert.equal(session.setCookie, null);
 });
 
-test("resolveAnonymousVisitorKey matches across minted sessions on same IP", () => {
+test("resolveAnonymousVisitorKey matches across minted sessions on same IP+UA", () => {
   const env = { CHAT_SESSION_SECRET: "abc", CURSOR_APP_ID: "app_test" };
   const req = {
     headers: {
@@ -109,6 +110,18 @@ test("resolveAnonymousVisitorKey matches across minted sessions on same IP", () 
   const s2 = ensureVisitorSession(req, { env, secureCookie: false });
   assert.equal(s1.minted, true);
   assert.equal(s2.minted, true);
-  assert.notEqual(s1.visitorId, s2.visitorId);
+  assert.equal(s1.visitorId, s2.visitorId, "deterministic flux_vid per IP+UA");
   assert.equal(resolveAnonymousVisitorKey(req, s1, { env }), resolveAnonymousVisitorKey(req, s2, { env }));
+});
+
+test("deterministic visitorId from stable hash is a valid UUID", () => {
+  const env = { CHAT_SESSION_SECRET: "abc", CURSOR_APP_ID: "app_test" };
+  const req = {
+    headers: { "x-forwarded-for": "203.0.113.50", "user-agent": "Mozilla/5.0" },
+  };
+  const stable = stableAnonymousVisitorId(req, { env });
+  const uuid = stableIdToVisitorUuid(stable);
+  assert.match(uuid, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  const session = ensureVisitorSession(req, { env, secureCookie: false });
+  assert.equal(session.visitorId, uuid.toLowerCase());
 });

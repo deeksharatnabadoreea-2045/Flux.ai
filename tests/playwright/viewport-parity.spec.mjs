@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const SHARED = {
   title: /Flux — human body/,
   stamp: "prod-2026-11-21-security-chat",
-  cacheBust: "security-chat-1",
+  cacheBust: "anon-rate-security-1",
 };
 
 test.describe("one Flux site — same content at 375, 768, and 1440", () => {

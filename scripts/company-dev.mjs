@@ -327,21 +327,17 @@ async function handlePublicChat(req, res) {
 
   const identity = await getIdentity(req);
   const signedIn = Boolean(identity.verified);
+  const ipKey = trustedClientKey(req);
+
+  if (req.method === "GET") {
+    writeChatJson(res, 200, { ...chatHealth(), publicChat: true, signedIn }, null);
+    return;
+  }
+
   const session = ensureVisitorSession(req, { secureCookie: false });
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
     : resolveAnonymousVisitorKey(req, session);
-  const ipKey = trustedClientKey(req);
-
-  if (req.method === "GET") {
-    writeChatJson(
-      res,
-      200,
-      { ...chatHealth(), publicChat: true, signedIn },
-      session.setCookie,
-    );
-    return;
-  }
 
   if (req.method !== "POST") {
     writeChatJson(res, 405, { ok: false, error: "method_not_allowed" }, session.setCookie);

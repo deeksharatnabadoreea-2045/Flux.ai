@@ -152,7 +152,7 @@ test("public GET health reports publicChat without secrets", async () => {
   assert.equal(data.deployRevision, undefined);
   assert.equal(data.basedOnMain, undefined);
   assert.doesNotMatch(JSON.stringify(data), /gsk_|CHAT_SESSION_SECRET|[0-9a-f]{40}/);
-  assert.match(res.headers.get("set-cookie") || "", /flux_vid=/);
+  assert.equal(res.headers.get("set-cookie"), null, "GET health does not mint flux_vid");
 });
 
 test("public GET health without Origin skips visitor cookie mint", async () => {
@@ -204,7 +204,7 @@ test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucke
     assert.equal(res.status, 200, `POST ${i + 1}`);
   }
   assert.equal(visitorKeys.size, 1, "all fresh sessions must map to one rate bucket");
-  assert.equal(mintedVisitorIds.size, 10, "each request mints a new flux_vid until cookie is kept");
+  assert.equal(mintedVisitorIds.size, 1, "deterministic flux_vid per IP+UA without cookie");
 
   for (let i = 10; i < ANON_MAX_REQUESTS; i += 1) {
     const res = await POST(
