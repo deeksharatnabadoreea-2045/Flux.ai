@@ -35,26 +35,6 @@ function json(status, body, extraHeaders = {}) {
 }
 
 /**
- * True when the request carries a browser Origin or Referer.
- * Bare ops probes (curl without those headers) should not mint visitor cookies.
- * @param {Headers | Record<string, string | undefined> | null | undefined} headers
- */
-function hasBrowserOrigin(headers) {
-  if (!headers) return false;
-  const get = (name) => {
-    if (typeof headers.get === "function") {
-      return String(headers.get(name) ?? headers.get(name.toLowerCase()) ?? "").trim();
-    }
-    const lower = name.toLowerCase();
-    for (const [k, v] of Object.entries(headers)) {
-      if (String(k).toLowerCase() === lower) return String(v ?? "").trim();
-    }
-    return "";
-  };
-  return Boolean(get("origin") || get("referer"));
-}
-
-/**
  * @param {Response} response
  * @param {string | null} setCookie
  */
@@ -78,10 +58,8 @@ export async function GET(request) {
   }
 
   const identity = await getIdentity(request);
-  // Only mint/refresh visitor cookies for real browser traffic.
-  const session = hasBrowserOrigin(request.headers)
-    ? ensureVisitorSession(request)
-    : { visitorId: null, setCookie: null };
+  // Health checks do not mint flux_vid — cookie is set on first POST only.
+  const session = { visitorId: null, setCookie: null };
   const health = {
     ...chatHealth(),
     publicChat: true,

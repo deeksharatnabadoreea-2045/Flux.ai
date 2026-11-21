@@ -9,7 +9,11 @@ import {
 } from "./chat-rate-store.mjs";
 import { resetLocalDatabase } from "./db.mjs";
 
+const prevGlobalCap = process.env.CHAT_GLOBAL_ANON_DAILY_MAX;
+
 after(async () => {
+  if (prevGlobalCap === undefined) delete process.env.CHAT_GLOBAL_ANON_DAILY_MAX;
+  else process.env.CHAT_GLOBAL_ANON_DAILY_MAX = prevGlobalCap;
   resetRateStoreMemory();
   await resetLocalDatabase();
 });
@@ -60,6 +64,30 @@ test("enforceChatRateLimits blocks IP after daily max across visitor keys", asyn
   assert.equal(blocked.allowed, false);
   assert.equal(blocked.scope, "ip_daily");
   assert.ok(blocked.retryAfterSec >= 1);
+});
+
+test("global anonymous daily cap blocks after threshold", async () => {
+  resetRateStoreMemory();
+  await resetLocalDatabase();
+  process.env.CHAT_GLOBAL_ANON_DAILY_MAX = "3";
+  const ipKey = `ip:203.0.113.${Math.floor(Math.random() * 200)}`;
+
+  for (let i = 0; i < 3; i += 1) {
+    const r = await enforceChatRateLimits({
+      visitorKey: `anon:global-test-${i}-${Date.now()}`,
+      ipKey: `ip:198.51.100.${i}`,
+      signedIn: false,
+    });
+    assert.equal(r.allowed, true, `request ${i + 1}`);
+  }
+  const blocked = await enforceChatRateLimits({
+    visitorKey: `anon:global-block-${Date.now()}`,
+    ipKey,
+    signedIn: false,
+  });
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.scope, "global_daily");
+  delete process.env.CHAT_GLOBAL_ANON_DAILY_MAX;
 });
 
 test("signed-in visitors use a separate higher bucket", async () => {

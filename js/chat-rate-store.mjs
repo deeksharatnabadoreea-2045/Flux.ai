@@ -19,6 +19,20 @@ export const IP_MAX_REQUESTS = 40;
 export const IP_DAILY_MAX = 150;
 /** Per-IP monthly cap for sustained abuse from distributed sessions on one IP. */
 export const IP_MONTHLY_MAX = 2_000;
+/** Fleet-wide anonymous POST cap per UTC day (limits IP-rotation abuse). */
+export const GLOBAL_ANON_DAILY_MAX = 5_000;
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function resolveGlobalAnonDailyMax(env = process.env) {
+  const raw = String(env.CHAT_GLOBAL_ANON_DAILY_MAX ?? "").trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  return GLOBAL_ANON_DAILY_MAX;
+}
 
 function dayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -132,6 +146,22 @@ export async function enforceChatRateLimits(input) {
     windowMs: 24 * 60 * 60 * 1000,
   };
 
+  /** @type {{ remaining: number } | null} */
+  let globalDaily = null;
+  if (!input.signedIn) {
+    globalDaily = await consumeRateLimit(`global:anon:day:${dayKey()}`, {
+      limit: resolveGlobalAnonDailyMax(),
+      windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!globalDaily.allowed) {
+      return {
+        allowed: false,
+        retryAfterSec: globalDaily.retryAfterSec,
+        scope: "global_daily",
+      };
+    }
+  }
+
   const visitor = await consumeRateLimit(`v:${input.visitorKey}`, windowLimit);
   if (!visitor.allowed) {
     return { allowed: false, retryAfterSec: visitor.retryAfterSec, scope: "visitor" };
@@ -175,6 +205,7 @@ export async function enforceChatRateLimits(input) {
       ipDaily.remaining,
       ipMonthly.remaining,
       daily.remaining,
+      globalDaily?.remaining ?? Number.MAX_SAFE_INTEGER,
     ),
     scope: "ok",
   };
