@@ -1,6 +1,6 @@
 /** Baked into the Cursor Apps pack for production verification. */
-export const DEPLOY_BASED_ON_MAIN = "de5574ba05a89f05f6f17a8b8a83758560b815d8";
-export const DEPLOY_BASED_ON_MAIN_SHORT = "de5574b";
+export const DEPLOY_BASED_ON_MAIN = "0c3590b571e94f0c9cdd8cbc2cbd0e90725bd4bf";
+export const DEPLOY_BASED_ON_MAIN_SHORT = "0c3590b";
 /** Query param for static CSS/JS — bump with DEPLOY_STAMP on each production publish. */
 export const STATIC_CACHE_BUST = "publish-security-clear-1";
 export const DEPLOY_STAMP = "prod-2026-11-21-publish-security-clear";
