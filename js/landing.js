@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=publish-security-clear-1";
-import { initLandingChat } from "./landing-chat.js?v=publish-security-clear-1";
+import { ACCESS } from "./access-config.js?v=anon-hardening-release-1";
+import { initLandingChat } from "./landing-chat.js?v=anon-hardening-release-1";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
