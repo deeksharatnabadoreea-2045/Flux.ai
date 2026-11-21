@@ -53,6 +53,13 @@ test("mint + verify visitor token round-trip", () => {
   assert.equal(verifyVisitorToken(token + "x", secret).ok, false);
 });
 
+test("mintVisitorToken rejects empty visitorId", () => {
+  assert.throws(
+    () => mintVisitorToken("", "secret"),
+    /requires a non-empty visitorId/,
+  );
+});
+
 test("trustedClientKey uses Netlify IP and ignores untrusted local XFF", () => {
   assert.equal(
     trustedClientKey({ headers: { "x-nf-client-connection-ip": "203.0.113.9" } }),

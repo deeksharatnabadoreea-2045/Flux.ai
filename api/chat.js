@@ -86,11 +86,10 @@ export async function POST(request) {
 
   const identity = await getIdentity(request);
   const signedIn = Boolean(identity.verified);
-  const session = ensureVisitorSession(request);
+  const ipKey = trustedClientKey(request);
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
-    : resolveAnonymousVisitorKey(request, session);
-  const ipKey = trustedClientKey(request);
+    : resolveAnonymousVisitorKey(request);
 
   const rate = await enforceChatRateLimits({
     visitorKey,
@@ -98,20 +97,20 @@ export async function POST(request) {
     signedIn,
   });
   if (!rate.allowed) {
-    return withVisitorCookie(
-      json(
-        429,
-        {
-          ok: false,
-          error: "rate_limited",
-          retryAfterSec: rate.retryAfterSec,
-          scope: rate.scope,
-        },
-        { "retry-after": String(rate.retryAfterSec) },
-      ),
-      session.setCookie,
+    // Rate limit before session mint — blocked POSTs must not Set-Cookie flux_vid.
+    return json(
+      429,
+      {
+        ok: false,
+        error: "rate_limited",
+        retryAfterSec: rate.retryAfterSec,
+        scope: rate.scope,
+      },
+      { "retry-after": String(rate.retryAfterSec) },
     );
   }
+
+  const session = ensureVisitorSession(request);
 
   const rawBody = await request.text();
   if (rawBody.length > MAX_CHAT_BODY_BYTES) {

@@ -193,7 +193,7 @@ test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucke
     const session = ensureVisitorSession(reqShape, { env, secureCookie: false });
     assert.equal(session.minted, true);
     mintedVisitorIds.add(session.visitorId);
-    visitorKeys.add(resolveAnonymousVisitorKey(reqShape, session, { env }));
+    visitorKeys.add(resolveAnonymousVisitorKey(reqShape, undefined, { env }));
 
     const res = await POST(
       chatRequest(

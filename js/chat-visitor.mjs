@@ -3,7 +3,7 @@
  * Cookie is HMAC-signed with CHAT_SESSION_SECRET (server-only). Never trust
  * client-supplied identity fields or raw IP headers unless the platform set them.
  */
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const VISITOR_COOKIE = "flux_vid";
 const MAX_COOKIE_AGE_SEC = 60 * 60 * 24 * 30; // 30 days
@@ -182,7 +182,10 @@ export function verifyVisitorToken(raw, secret) {
  */
 export function mintVisitorToken(visitorId, secret) {
   const ts = String(Date.now());
-  const id = visitorId || randomUUID();
+  const id = String(visitorId ?? "").trim();
+  if (!id) {
+    throw new Error("mintVisitorToken requires a non-empty visitorId");
+  }
   const sig = sign(`${id}.${ts}`, secret);
   return { visitorId: id, token: `${id}.${ts}.${sig}` };
 }
