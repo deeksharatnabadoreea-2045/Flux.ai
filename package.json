@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/trusted-sources.test.js js/scientific-method.test.js js/literature-verify.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js js/human-molecule.test.js js/science-chat.test.js js/chat-guard.test.js js/netlify-chat.test.js js/chat-visitor.test.js js/chat-rate-store.test.js js/public-chat-api.test.js js/anon-chat-security.test.js js/deploy-revision.test.js",
+    "test": "node --test js/desks.test.js js/evolution.test.js js/agent-desks.test.js js/platform.test.js js/linked-sources.test.js js/trusted-sources.test.js js/scientific-method.test.js js/literature-verify.test.js js/url-safety.test.js js/copilot-roadmap.test.js js/pubchem.test.js js/human-molecule.test.js js/science-chat.test.js js/chat-guard.test.js js/netlify-chat.test.js js/chat-rate-identity.test.js js/chat-rate-store.test.js js/public-chat-api.test.js js/anon-chat-security.test.js js/flux-vid-removal.test.js js/deploy-revision.test.js",
     "test:playwright": "npx playwright test",
     "build": "node scripts/migrate.mjs",
     "engine:replay-stub": "node engine/harness/replay-stub.mjs",

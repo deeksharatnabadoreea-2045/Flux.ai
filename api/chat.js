@@ -14,7 +14,7 @@ import {
 } from "../js/chat-guard.mjs";
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
 import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
-import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-visitor.mjs";
+import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-rate-identity.mjs";
 import {
   DEPLOY_BASED_ON_MAIN,
   DEPLOY_BASED_ON_MAIN_SHORT,

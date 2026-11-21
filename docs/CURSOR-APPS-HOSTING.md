@@ -53,9 +53,9 @@ Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **n
 | Static site | `index.html`, `landing.css`, `js/*`, `hq.html`, … |
 | Chat route | `api/chat.js` — public GET/POST with optional identity |
 | Rate store | `js/chat-rate-store.mjs` + `migrations/001_chat_rate_limits.sql` (Postgres via `cursor-app.json`) |
-| Anonymous identity | `js/chat-visitor.mjs` + `js/chat-security.mjs` (`CHAT_SESSION_SECRET` / `CHAT_ANON_RATE_SALT`) |
+| Anonymous identity | `js/chat-rate-identity.mjs` + `js/chat-security.mjs` (`CHAT_SESSION_SECRET` / `CHAT_ANON_RATE_SALT`) |
 | Shared logic | `js/science-chat.mjs` |
-| Secret | Bind **`GROQ_API_KEY`**; **`CHAT_SESSION_SECRET`** required for production visitor cookies |
+| Secret | Bind **`GROQ_API_KEY`**; **`CHAT_SESSION_SECRET`** (or `CHAT_ANON_RATE_SALT`) for production anonymous rate buckets |
 | Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` |
 
 The browser only calls same-origin `POST /api/chat` with `credentials: "same-origin"`. It never receives the key.
@@ -63,7 +63,7 @@ The browser only calls same-origin `POST /api/chat` with `credentials: "same-ori
 ## Local development
 
 1. Set `GROQ_API_KEY` in the environment (or Cursor secrets for hosted runs).
-2. **Published app:** bind `CHAT_SESSION_SECRET` in Cursor Apps → Secrets (Dashboard). Republish after binding so signed `flux_vid` cookies work.
+2. **Published app:** bind `CHAT_SESSION_SECRET` (or `CHAT_ANON_RATE_SALT`) and ensure Postgres `DATABASE_URL` is bound for fail-closed rate limits.
 3. Run `npm run dev` and open http://127.0.0.1:4173 — chat works without Cursor sign-in.
 4. `npm test` and `npm run test:playwright` for automated coverage.
 
