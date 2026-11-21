@@ -11,20 +11,62 @@ const MAX_COOKIE_AGE_SEC = 60 * 60 * 24 * 30; // 30 days
 /**
  * @param {NodeJS.ProcessEnv} [env]
  */
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {{ ok: true, secret: string, source: string } | { ok: false, secret: null, source: string }}
+ */
 export function resolveSessionSecret(env = process.env) {
   const explicit = String(env.CHAT_SESSION_SECRET ?? "").trim();
-  if (explicit) return { secret: explicit, source: "CHAT_SESSION_SECRET" };
-  // Published apps always have CURSOR_APP_ID; derive a stable fallback so
-  // sessions still work if the operator has not bound CHAT_SESSION_SECRET yet.
+  if (explicit) {
+    return { ok: true, secret: explicit, source: "CHAT_SESSION_SECRET" };
+  }
   const appId = String(env.CURSOR_APP_ID ?? "").trim();
   if (appId) {
-    return {
-      secret: createHmac("sha256", "flux-chat-session").update(appId).digest("hex"),
-      source: "derived",
-    };
+    // Published apps must bind CHAT_SESSION_SECRET — no derive-from-app-id fallback.
+    return { ok: false, secret: null, source: "missing" };
   }
-  // Local/dev only.
-  return { secret: "flux-local-dev-session-secret", source: "local" };
+  return { ok: true, secret: "flux-local-dev-session-secret", source: "local" };
+}
+
+function headerGet(headers, name) {
+  if (!headers) return "";
+  if (typeof headers.get === "function") {
+    return String(headers.get(name) ?? headers.get(name.toLowerCase()) ?? "").trim();
+  }
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers)) {
+    if (String(k).toLowerCase() === lower) return String(v ?? "").trim();
+  }
+  return "";
+}
+
+/**
+ * Stable anonymous id for rate limits when no valid flux_vid cookie (IP + UA).
+ * @param {Request | { headers: Headers | Record<string, string | undefined> }} request
+ * @param {{ env?: NodeJS.ProcessEnv }} [opts]
+ */
+export function stableAnonymousVisitorId(request, opts = {}) {
+  const env = opts.env ?? process.env;
+  const ipKey = trustedClientKey(request, { env });
+  const ua = headerGet(request.headers, "user-agent").slice(0, 256);
+  const resolved = resolveSessionSecret(env);
+  const salt = resolved.ok
+    ? resolved.secret
+    : String(env.CHAT_ANON_RATE_SALT ?? "flux-anon-rate-limit-v1");
+  return createHmac("sha256", salt).update(`${ipKey}|${ua}`).digest("hex").slice(0, 32);
+}
+
+/**
+ * Postgres/memory visitor bucket key for anonymous chat.
+ * @param {Request | { headers: Headers | Record<string, string | undefined> }} request
+ * @param {{ visitorId: string, minted: boolean }} session
+ * @param {{ env?: NodeJS.ProcessEnv }} [opts]
+ */
+export function resolveAnonymousVisitorKey(request, session, opts = {}) {
+  if (!session.minted) {
+    return `anon:${session.visitorId}`;
+  }
+  return `anon:${stableAnonymousVisitorId(request, opts)}`;
 }
 
 /**
@@ -150,13 +192,22 @@ export function visitorSetCookieHeader(token, opts = {}) {
  */
 export function ensureVisitorSession(request, opts = {}) {
   const env = opts.env ?? process.env;
-  const { secret } = resolveSessionSecret(env);
+  const resolved = resolveSessionSecret(env);
   const headers = request.headers;
   const cookieHeader =
     typeof headers.get === "function"
       ? headers.get("cookie")
       : headers?.cookie ?? headers?.Cookie ?? "";
 
+  if (!resolved.ok) {
+    return {
+      visitorId: stableAnonymousVisitorId(request, { env }),
+      setCookie: null,
+      minted: true,
+    };
+  }
+
+  const secret = resolved.secret;
   const existing = readCookie(cookieHeader, VISITOR_COOKIE);
   const verified = verifyVisitorToken(existing, secret);
   if (verified.ok) {

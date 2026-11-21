@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   ensureVisitorSession,
   mintVisitorToken,
+  resolveAnonymousVisitorKey,
   resolveSessionSecret,
+  stableAnonymousVisitorId,
   trustedClientKey,
   verifyVisitorToken,
   VISITOR_COOKIE,
@@ -13,6 +15,32 @@ test("resolveSessionSecret prefers CHAT_SESSION_SECRET", () => {
   const r = resolveSessionSecret({ CHAT_SESSION_SECRET: "super-secret-value" });
   assert.equal(r.source, "CHAT_SESSION_SECRET");
   assert.equal(r.secret, "super-secret-value");
+  assert.equal(r.ok, true);
+});
+
+test("resolveSessionSecret requires CHAT_SESSION_SECRET on published app", () => {
+  const r = resolveSessionSecret({ CURSOR_APP_ID: "app_prod_xyz" });
+  assert.equal(r.ok, false);
+  assert.equal(r.source, "missing");
+  assert.equal(r.secret, null);
+});
+
+test("stableAnonymousVisitorId is stable per IP+UA without cookie", () => {
+  const env = { CHAT_SESSION_SECRET: "unit-salt", CURSOR_APP_ID: "app_test" };
+  const headers = {
+    "x-forwarded-for": "203.0.113.88",
+    "user-agent": "FluxTest/1.0",
+  };
+  const a = stableAnonymousVisitorId({ headers }, { env });
+  const b = stableAnonymousVisitorId({ headers }, { env });
+  assert.equal(a, b);
+  assert.notEqual(
+    a,
+    stableAnonymousVisitorId(
+      { headers: { "x-forwarded-for": "203.0.113.89", "user-agent": "FluxTest/1.0" } },
+      { env },
+    ),
+  );
 });
 
 test("mint + verify visitor token round-trip", () => {
@@ -58,4 +86,29 @@ test("ensureVisitorSession mints cookie then reuses it", () => {
   assert.equal(second.minted, false);
   assert.equal(second.visitorId, first.visitorId);
   assert.equal(second.setCookie, null);
+});
+
+test("ensureVisitorSession without CHAT_SESSION_SECRET on app does not mint cookie", () => {
+  const session = ensureVisitorSession(
+    { headers: { "x-forwarded-for": "203.0.113.1" } },
+    { env: { CURSOR_APP_ID: "app_no_secret" } },
+  );
+  assert.equal(session.minted, true);
+  assert.equal(session.setCookie, null);
+});
+
+test("resolveAnonymousVisitorKey matches across minted sessions on same IP", () => {
+  const env = { CHAT_SESSION_SECRET: "abc", CURSOR_APP_ID: "app_test" };
+  const req = {
+    headers: {
+      "x-forwarded-for": "203.0.113.50",
+      "user-agent": "Mozilla/5.0",
+    },
+  };
+  const s1 = ensureVisitorSession(req, { env, secureCookie: false });
+  const s2 = ensureVisitorSession(req, { env, secureCookie: false });
+  assert.equal(s1.minted, true);
+  assert.equal(s2.minted, true);
+  assert.notEqual(s1.visitorId, s2.visitorId);
+  assert.equal(resolveAnonymousVisitorKey(req, s1, { env }), resolveAnonymousVisitorKey(req, s2, { env }));
 });

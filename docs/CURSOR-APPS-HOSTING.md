@@ -29,7 +29,7 @@ Ordinary visitors must be able to open the site and use `/api/chat` **without** 
 | Visibility | App must be **Public** in Cursor Publish Settings (owner action). Private/team gates block the HTML before chat code runs. |
 | API auth | `api/chat.js` uses optional `getIdentity` — anonymous OK; signed-in viewers get higher limits |
 | Abuse controls | Same-origin Origin/Referer checks, signed `flux_vid` visitor cookie, trusted platform IP key, body/message limits, durable Postgres rate buckets when `DATABASE_URL` is set |
-| Secrets | Bind **`GROQ_API_KEY`** (required for Groq replies). Bind **`CHAT_SESSION_SECRET`** for visitor cookie HMAC (recommended). Never put keys in the browser. |
+| Secrets | Bind **`GROQ_API_KEY`** (required for Groq replies). Bind **`CHAT_SESSION_SECRET`** (required on published apps for signed `flux_vid` cookies). Without it, cookies are not minted; anonymous limits still use stable IP+UA buckets. Never put keys in the browser. |
 
 ## GitHub is source only
 
@@ -55,7 +55,7 @@ Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **n
 | Rate store | `js/chat-rate-store.mjs` + `migrations/001_chat_rate_limits.sql` (Postgres via `cursor-app.json`) |
 | Visitor sessions | `js/chat-visitor.mjs` (`CHAT_SESSION_SECRET`) |
 | Shared logic | `js/science-chat.mjs` |
-| Secret | Bind **`GROQ_API_KEY`**; bind **`CHAT_SESSION_SECRET`** |
+| Secret | Bind **`GROQ_API_KEY`**; **`CHAT_SESSION_SECRET`** required for production visitor cookies |
 | Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` |
 
 The browser only calls same-origin `POST /api/chat` with `credentials: "same-origin"`. It never receives the key.
@@ -63,7 +63,7 @@ The browser only calls same-origin `POST /api/chat` with `credentials: "same-ori
 ## Local development
 
 1. Set `GROQ_API_KEY` in the environment (or Cursor secrets for hosted runs).
-2. Optional: `CHAT_SESSION_SECRET` for stable visitor cookies.
+2. **Published app:** bind `CHAT_SESSION_SECRET` in Cursor Apps → Secrets (Dashboard). Republish after binding so signed `flux_vid` cookies work.
 3. Run `npm run dev` and open http://127.0.0.1:4173 — chat works without Cursor sign-in.
 4. `npm test` and `npm run test:playwright` for automated coverage.
 

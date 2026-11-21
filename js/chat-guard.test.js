@@ -9,6 +9,17 @@ import {
   safeChatProviderError,
   validateChatPayload,
 } from "./chat-guard.mjs";
+import {
+  ANON_MAX_REQUESTS,
+  enforceChatRateLimits,
+  resetRateStoreMemory,
+} from "./chat-rate-store.mjs";
+import { resetLocalDatabase } from "./db.mjs";
+import {
+  ensureVisitorSession,
+  resolveAnonymousVisitorKey,
+  trustedClientKey,
+} from "./chat-visitor.mjs";
 
 test("checkChatRateLimit allows then blocks after limit", () => {
   resetChatRateLimits();
@@ -73,6 +84,35 @@ test("assertChatBrowserOrigin honors CHAT_ALLOWED_ORIGINS", () => {
   );
   assert.equal(ok.ok, true);
   assert.deepEqual(parseAllowedChatOrigins({ CHAT_ALLOWED_ORIGINS: "a, b" }), ["a", "b"]);
+});
+
+test("anonymous same-IP requests without flux_vid share one visitor rate bucket", async () => {
+  resetRateStoreMemory();
+  await resetLocalDatabase();
+  const env = { CHAT_SESSION_SECRET: "guard-test-secret", CURSOR_APP_ID: "app_guard" };
+  const req = {
+    headers: {
+      "x-forwarded-for": "203.0.113.199",
+      "user-agent": "chat-guard-test",
+    },
+  };
+  const s1 = ensureVisitorSession(req, { env, secureCookie: false });
+  const s2 = ensureVisitorSession(req, { env, secureCookie: false });
+  const visitorKey = resolveAnonymousVisitorKey(req, s1, { env });
+  assert.equal(visitorKey, resolveAnonymousVisitorKey(req, s2, { env }));
+  const ipKey = trustedClientKey(req, { env });
+
+  for (let i = 0; i < ANON_MAX_REQUESTS; i += 1) {
+    const r = await enforceChatRateLimits({ visitorKey, ipKey, signedIn: false });
+    assert.equal(r.allowed, true, `request ${i + 1}`);
+  }
+  const blocked = await enforceChatRateLimits({
+    visitorKey: resolveAnonymousVisitorKey(req, s2, { env }),
+    ipKey,
+    signedIn: false,
+  });
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.scope, "visitor");
 });
 
 test("validateChatPayload accepts normal chat and rejects abuse shapes", () => {
