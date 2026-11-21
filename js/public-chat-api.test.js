@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { POST, GET } from "../api/chat.js";
-import { resetRateStoreMemory } from "./chat-rate-store.mjs";
+import { ANON_MAX_REQUESTS, resetRateStoreMemory } from "./chat-rate-store.mjs";
 import { resetLocalDatabase } from "./db.mjs";
+import {
+  ensureVisitorSession,
+  resolveAnonymousVisitorKey,
+} from "./chat-visitor.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.GROQ_API_KEY;
@@ -162,6 +166,62 @@ test("public GET health without Origin skips visitor cookie mint", async () => {
   assert.equal(data.publicChat, true);
   assert.equal(data.route, "/api/chat");
   assert.equal(res.headers.get("set-cookie"), null);
+});
+
+test("ten anonymous POSTs same IP+UA without cookie share one visitor rate bucket", async () => {
+  delete process.env.GROQ_API_KEY;
+  process.env.CURSOR_APP_ID = "app_public_test";
+  process.env.CHAT_SESSION_SECRET = "unit-public-chat-secret";
+  mockGlucoseLookupFetch();
+
+  const postHeaders = {
+    "x-forwarded-for": "203.0.113.10",
+    "user-agent": "FluxAnonymousBucketTest/1.0",
+  };
+  const env = {
+    CHAT_SESSION_SECRET: process.env.CHAT_SESSION_SECRET,
+    CURSOR_APP_ID: process.env.CURSOR_APP_ID,
+  };
+  const reqShape = { headers: postHeaders };
+
+  const visitorKeys = new Set();
+  const mintedVisitorIds = new Set();
+  for (let i = 0; i < 10; i += 1) {
+    const session = ensureVisitorSession(reqShape, { env, secureCookie: false });
+    assert.equal(session.minted, true);
+    mintedVisitorIds.add(session.visitorId);
+    visitorKeys.add(resolveAnonymousVisitorKey(reqShape, session, { env }));
+
+    const res = await POST(
+      chatRequest(
+        { messages: [{ role: "user", content: "glucose" }] },
+        postHeaders,
+      ),
+    );
+    assert.equal(res.status, 200, `POST ${i + 1}`);
+  }
+  assert.equal(visitorKeys.size, 1, "all fresh sessions must map to one rate bucket");
+  assert.equal(mintedVisitorIds.size, 10, "each request mints a new flux_vid until cookie is kept");
+
+  for (let i = 10; i < ANON_MAX_REQUESTS; i += 1) {
+    const res = await POST(
+      chatRequest(
+        { messages: [{ role: "user", content: "glucose" }] },
+        postHeaders,
+      ),
+    );
+    assert.equal(res.status, 200, `POST ${i + 1}`);
+  }
+  const blocked = await POST(
+    chatRequest(
+      { messages: [{ role: "user", content: "glucose" }] },
+      postHeaders,
+    ),
+  );
+  assert.equal(blocked.status, 429);
+  const body = await blocked.json();
+  assert.equal(body.error, "rate_limited");
+  assert.equal(body.scope, "visitor");
 });
 
 test("public GET health does not burn POST rate budget", async () => {

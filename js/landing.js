@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=cross-device-parity-1";
-import { initLandingChat } from "./landing-chat.js?v=cross-device-parity-1";
+import { ACCESS } from "./access-config.js?v=public-chat-security-2";
+import { initLandingChat } from "./landing-chat.js?v=public-chat-security-2";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
