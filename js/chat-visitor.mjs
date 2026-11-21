@@ -28,6 +28,26 @@ export function resolveSessionSecret(env = process.env) {
   return { ok: true, secret: "flux-local-dev-session-secret", source: "local" };
 }
 
+/**
+ * Server-only salt for anonymous rate-limit identity (HMAC of trusted IP).
+ * Published apps must bind CHAT_SESSION_SECRET or CHAT_ANON_RATE_SALT.
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function resolveAnonRateSecret(env = process.env) {
+  const explicitSalt = String(env.CHAT_ANON_RATE_SALT ?? "").trim();
+  if (explicitSalt) {
+    return { ok: true, secret: explicitSalt, source: "CHAT_ANON_RATE_SALT" };
+  }
+  const session = resolveSessionSecret(env);
+  if (session.ok) {
+    return { ok: true, secret: session.secret, source: session.source };
+  }
+  if (String(env.CURSOR_APP_ID ?? "").trim()) {
+    return { ok: false, secret: null, source: "missing" };
+  }
+  return { ok: true, secret: "flux-local-dev-anon-rate-salt", source: "local" };
+}
+
 function headerGet(headers, name) {
   if (!headers) return "";
   if (typeof headers.get === "function") {
@@ -41,19 +61,19 @@ function headerGet(headers, name) {
 }
 
 /**
- * Stable anonymous id for rate limits when no valid flux_vid cookie (IP + UA).
+ * Stable anonymous id for rate limits — HMAC(trusted IP) only (no UA / cookies / body).
  * @param {Request | { headers: Headers | Record<string, string | undefined> }} request
  * @param {{ env?: NodeJS.ProcessEnv }} [opts]
  */
 export function stableAnonymousVisitorId(request, opts = {}) {
   const env = opts.env ?? process.env;
   const ipKey = trustedClientKey(request, { env });
-  const ua = headerGet(request.headers, "user-agent").slice(0, 256);
-  const resolved = resolveSessionSecret(env);
+  const resolved = resolveAnonRateSecret(env);
   const salt = resolved.ok
     ? resolved.secret
     : String(env.CHAT_ANON_RATE_SALT ?? "flux-anon-rate-limit-v1");
-  return createHmac("sha256", salt).update(`${ipKey}|${ua}`).digest("hex").slice(0, 32);
+  const rawIp = ipKey.startsWith("ip:") ? ipKey.slice(3) : ipKey;
+  return createHmac("sha256", salt).update(rawIp).digest("hex").slice(0, 32);
 }
 
 /**
@@ -71,8 +91,7 @@ export function stableIdToVisitorUuid(stableHex32) {
 
 /**
  * Postgres/memory visitor bucket key for anonymous chat.
- * Always uses stableAnonymousVisitorId (IP + trusted IP + UA HMAC) — never flux_vid,
- * so a fresh cookie or per-request UUID cannot reset rate buckets.
+ * Always uses stableAnonymousVisitorId (HMAC of trusted IP) — never flux_vid or UA.
  * @param {Request | { headers: Headers | Record<string, string | undefined> }} request
  * @param {{ visitorId?: string, minted?: boolean }} [_session]
  * @param {{ env?: NodeJS.ProcessEnv }} [opts]
@@ -106,8 +125,8 @@ export function trustedClientKey(request, opts = {}) {
   const nf = get("x-nf-client-connection-ip");
   if (nf) return `ip:${nf.slice(0, 128)}`;
 
-  // Cursor Apps / Vercel-style platforms set forwarding headers themselves.
-  // Only trust them when we know we are on the published host or Netlify.
+  // Cursor Apps runs on Vercel-style edge: platform sets x-vercel-forwarded-for (trusted).
+  // Only trust forwarding headers on the published host, Netlify legacy, or Vercel CI.
   const onPlatform = Boolean(String(env.CURSOR_APP_ID ?? "").trim() || env.NETLIFY || env.VERCEL);
 
   if (onPlatform) {

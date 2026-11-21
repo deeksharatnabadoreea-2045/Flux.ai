@@ -6,13 +6,22 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** @type {import("pg").Pool | undefined} */
 let pool;
+/** @type {string | undefined} */
+let poolUrl;
 /** @type {Promise<import("@electric-sql/pglite").PGlite> | undefined} */
 let local;
+
+function readDatabaseUrl() {
+  return process.env.DATABASE_URL?.trim() ?? "";
+}
+
+function isPgliteUrl(url) {
+  return url.startsWith("pglite:");
+}
 
 /**
  * @template {Record<string, unknown>} [T=Record<string, unknown>]
@@ -21,9 +30,14 @@ let local;
  * @returns {Promise<T[]>}
  */
 export async function sql(text, params = []) {
-  if (databaseUrl !== "") {
+  const databaseUrl = readDatabaseUrl();
+  if (databaseUrl !== "" && !isPgliteUrl(databaseUrl)) {
     const pg = await import("pg");
-    pool ??= new pg.default.Pool({ connectionString: databaseUrl, max: 5 });
+    if (!pool || poolUrl !== databaseUrl) {
+      if (pool) await pool.end().catch(() => {});
+      pool = new pg.default.Pool({ connectionString: databaseUrl, max: 5 });
+      poolUrl = databaseUrl;
+    }
     return /** @type {T[]} */ ((await pool.query(text, params)).rows);
   }
 
@@ -37,12 +51,24 @@ export async function sql(text, params = []) {
 }
 
 export function usingDurableDatabase() {
-  return databaseUrl !== "";
+  return readDatabaseUrl() !== "";
+}
+
+export function isPgliteDurableTestMode() {
+  return isPgliteUrl(readDatabaseUrl());
 }
 
 /** Test helper — drop the PGlite handle so the next call reloads migrations. */
 export async function resetLocalDatabase() {
-  if (databaseUrl) return;
+  const databaseUrl = readDatabaseUrl();
+  if (databaseUrl && !isPgliteUrl(databaseUrl)) {
+    if (pool) {
+      await pool.end().catch(() => {});
+      pool = undefined;
+      poolUrl = undefined;
+    }
+    return;
+  }
   if (local) {
     try {
       const db = await local;
@@ -52,7 +78,6 @@ export async function resetLocalDatabase() {
     }
   }
   local = undefined;
-  pool = undefined;
 }
 
 async function startLocal() {

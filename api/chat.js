@@ -13,11 +13,8 @@ import {
   validateChatPayload,
 } from "../js/chat-guard.mjs";
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
-import {
-  ensureVisitorSession,
-  resolveAnonymousVisitorKey,
-  trustedClientKey,
-} from "../js/chat-visitor.mjs";
+import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
+import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-visitor.mjs";
 import {
   DEPLOY_BASED_ON_MAIN,
   DEPLOY_BASED_ON_MAIN_SHORT,
@@ -34,21 +31,6 @@ function json(status, body, extraHeaders = {}) {
   });
 }
 
-/**
- * @param {Response} response
- * @param {string | null} setCookie
- */
-function withVisitorCookie(response, setCookie) {
-  if (!setCookie) return response;
-  const headers = new Headers(response.headers);
-  headers.append("set-cookie", setCookie);
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
 export async function GET(request) {
   const originGate = assertChatBrowserOrigin(request.headers);
   // Health may be polled same-origin or by ops without Origin; still reject
@@ -58,8 +40,6 @@ export async function GET(request) {
   }
 
   const identity = await getIdentity(request);
-  // Health checks do not mint flux_vid — cookie is set on first POST only.
-  const session = { visitorId: null, setCookie: null };
   const health = {
     ...chatHealth(),
     publicChat: true,
@@ -75,7 +55,7 @@ export async function GET(request) {
       basedOnMainShort: DEPLOY_BASED_ON_MAIN_SHORT,
     });
   }
-  return withVisitorCookie(json(200, health), session.setCookie);
+  return json(200, health);
 }
 
 export async function POST(request) {
@@ -86,6 +66,12 @@ export async function POST(request) {
 
   const identity = await getIdentity(request);
   const signedIn = Boolean(identity.verified);
+
+  const preflight = preflightAnonymousChatPost(request, { signedIn });
+  if (!preflight.ok) {
+    return json(503, { ok: false, error: preflight.error });
+  }
+
   const ipKey = trustedClientKey(request);
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
@@ -97,7 +83,9 @@ export async function POST(request) {
     signedIn,
   });
   if (!rate.allowed) {
-    // Rate limit before session mint — blocked POSTs must not Set-Cookie flux_vid.
+    if (rate.failClosed) {
+      return json(503, { ok: false, error: rate.error ?? "rate_store_unavailable" });
+    }
     return json(
       429,
       {
@@ -110,23 +98,21 @@ export async function POST(request) {
     );
   }
 
-  const session = ensureVisitorSession(request);
-
   const rawBody = await request.text();
   if (rawBody.length > MAX_CHAT_BODY_BYTES) {
-    return withVisitorCookie(json(413, { ok: false, error: "body_too_large" }), session.setCookie);
+    return json(413, { ok: false, error: "body_too_large" });
   }
 
   let payload = {};
   try {
     payload = rawBody ? JSON.parse(rawBody) : {};
   } catch {
-    return withVisitorCookie(json(400, { ok: false, error: "invalid_json" }), session.setCookie);
+    return json(400, { ok: false, error: "invalid_json" });
   }
 
   const validated = validateChatPayload(payload ?? {});
   if (!validated.ok) {
-    return withVisitorCookie(json(400, { ok: false, error: validated.error }), session.setCookie);
+    return json(400, { ok: false, error: validated.error });
   }
 
   try {
@@ -135,11 +121,8 @@ export async function POST(request) {
     // Never echo secrets; strip any accidental key-shaped fields.
     delete body.apiKey;
     delete body.GROQ_API_KEY;
-    return withVisitorCookie(
-      json(status ?? (body.ok ? 200 : 500), body),
-      session.setCookie,
-    );
+    return json(status ?? (body.ok ? 200 : 500), body);
   } catch {
-    return withVisitorCookie(json(500, { ok: false, error: "chat_failed" }), session.setCookie);
+    return json(500, { ok: false, error: "chat_failed" });
   }
 }
