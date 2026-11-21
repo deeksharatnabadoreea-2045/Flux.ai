@@ -3,7 +3,7 @@
  * Enforces fail-closed posture before rate limits or upstream calls.
  */
 import { usingDurableDatabase } from "./db.mjs";
-import { resolveAnonRateSecret, trustedClientKey } from "./chat-visitor.mjs";
+import { resolveAnonRateSecret, trustedClientKey } from "./chat-rate-identity.mjs";
 
 /**
  * @param {NodeJS.ProcessEnv} [env]

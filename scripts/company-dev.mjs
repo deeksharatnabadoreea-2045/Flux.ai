@@ -24,7 +24,7 @@ import {
 } from "../js/chat-guard.mjs";
 import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
 import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
-import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-visitor.mjs";
+import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-rate-identity.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));

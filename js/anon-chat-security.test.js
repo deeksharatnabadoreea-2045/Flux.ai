@@ -17,7 +17,7 @@ import {
   resolveAnonymousVisitorKey,
   stableAnonymousVisitorId,
   trustedClientKey,
-} from "./chat-visitor.mjs";
+} from "./chat-rate-identity.mjs";
 
 const PROD_HOST = "flux-ai-3cdd.apps.grok.bot";
 const PROD_ORIGIN = `https://${PROD_HOST}`;

@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { POST, GET } from "../api/chat.js";
 import { ANON_MAX_REQUESTS, resetRateStoreMemory } from "./chat-rate-store.mjs";
 import { resetLocalDatabase } from "./db.mjs";
-import { resolveAnonymousVisitorKey } from "./chat-visitor.mjs";
+import { resolveAnonymousVisitorKey } from "./chat-rate-identity.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.GROQ_API_KEY;

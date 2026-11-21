@@ -15,11 +15,7 @@ import {
   resetRateStoreMemory,
 } from "./chat-rate-store.mjs";
 import { resetLocalDatabase } from "./db.mjs";
-import {
-  ensureVisitorSession,
-  resolveAnonymousVisitorKey,
-  trustedClientKey,
-} from "./chat-visitor.mjs";
+import { resolveAnonymousVisitorKey, trustedClientKey } from "./chat-rate-identity.mjs";
 
 test("checkChatRateLimit allows then blocks after limit", () => {
   resetChatRateLimits();
@@ -86,7 +82,7 @@ test("assertChatBrowserOrigin honors CHAT_ALLOWED_ORIGINS", () => {
   assert.deepEqual(parseAllowedChatOrigins({ CHAT_ALLOWED_ORIGINS: "a, b" }), ["a", "b"]);
 });
 
-test("anonymous same-IP requests without flux_vid share one visitor rate bucket", async () => {
+test("anonymous same-IP requests share one visitor rate bucket (IP-only identity)", async () => {
   resetRateStoreMemory();
   await resetLocalDatabase();
   const env = { CHAT_SESSION_SECRET: "guard-test-secret", CURSOR_APP_ID: "app_guard" };
@@ -96,10 +92,14 @@ test("anonymous same-IP requests without flux_vid share one visitor rate bucket"
       "user-agent": "chat-guard-test",
     },
   };
-  const s1 = ensureVisitorSession(req, { env, secureCookie: false });
-  const s2 = ensureVisitorSession(req, { env, secureCookie: false });
-  const visitorKey = resolveAnonymousVisitorKey(req, s1, { env });
-  assert.equal(visitorKey, resolveAnonymousVisitorKey(req, s2, { env }));
+  const reqAltUa = {
+    headers: {
+      "x-forwarded-for": "203.0.113.199",
+      "user-agent": "other-agent",
+    },
+  };
+  const visitorKey = resolveAnonymousVisitorKey(req, undefined, { env });
+  assert.equal(visitorKey, resolveAnonymousVisitorKey(reqAltUa, undefined, { env }));
   const ipKey = trustedClientKey(req, { env });
 
   for (let i = 0; i < ANON_MAX_REQUESTS; i += 1) {
@@ -107,7 +107,7 @@ test("anonymous same-IP requests without flux_vid share one visitor rate bucket"
     assert.equal(r.allowed, true, `request ${i + 1}`);
   }
   const blocked = await enforceChatRateLimits({
-    visitorKey: resolveAnonymousVisitorKey(req, s2, { env }),
+    visitorKey: resolveAnonymousVisitorKey(reqAltUa, undefined, { env }),
     ipKey,
     signedIn: false,
   });
