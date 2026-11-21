@@ -87,12 +87,16 @@ export async function GET(request) {
     publicChat: true,
     route: "/api/chat",
     signedIn: Boolean(identity.verified),
-    deployRevision: DEPLOY_REVISION,
-    deployRevisionShort: DEPLOY_REVISION_SHORT,
-    basedOnMain: DEPLOY_BASED_ON_MAIN,
-    basedOnMainShort: DEPLOY_BASED_ON_MAIN_SHORT,
     deployStamp: DEPLOY_STAMP,
   };
+  if (identity.verified) {
+    Object.assign(health, {
+      deployRevision: DEPLOY_REVISION,
+      deployRevisionShort: DEPLOY_REVISION_SHORT,
+      basedOnMain: DEPLOY_BASED_ON_MAIN,
+      basedOnMainShort: DEPLOY_BASED_ON_MAIN_SHORT,
+    });
+  }
   return withVisitorCookie(json(200, health), session.setCookie);
 }
 
