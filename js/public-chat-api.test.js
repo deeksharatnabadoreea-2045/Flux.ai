@@ -148,7 +148,10 @@ test("public GET health reports publicChat without secrets", async () => {
   assert.equal(data.publicChat, true);
   assert.equal(data.route, "/api/chat");
   assert.equal(data.groqConfigured, false);
-  assert.doesNotMatch(JSON.stringify(data), /gsk_|CHAT_SESSION_SECRET/);
+  assert.ok(data.deployStamp);
+  assert.equal(data.deployRevision, undefined);
+  assert.equal(data.basedOnMain, undefined);
+  assert.doesNotMatch(JSON.stringify(data), /gsk_|CHAT_SESSION_SECRET|[0-9a-f]{40}/);
   assert.match(res.headers.get("set-cookie") || "", /flux_vid=/);
 });
 

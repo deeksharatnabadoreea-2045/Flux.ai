@@ -15,9 +15,17 @@ export const AUTH_MAX_REQUESTS = 60;
 export const AUTH_DAILY_MAX = 300;
 export const IP_WINDOW_MS = 5 * 60 * 1000;
 export const IP_MAX_REQUESTS = 40;
+/** Per-IP daily cap (limits many fresh anon buckets from one address). */
+export const IP_DAILY_MAX = 150;
+/** Per-IP monthly cap for sustained abuse from distributed sessions on one IP. */
+export const IP_MONTHLY_MAX = 2_000;
 
 function dayKey() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function monthKey() {
+  return new Date().toISOString().slice(0, 7);
 }
 
 /** Test helper */
@@ -137,6 +145,22 @@ export async function enforceChatRateLimits(input) {
     return { allowed: false, retryAfterSec: ip.retryAfterSec, scope: "ip" };
   }
 
+  const ipDaily = await consumeRateLimit(`ipday:${dayKey()}:${input.ipKey}`, {
+    limit: IP_DAILY_MAX,
+    windowMs: 24 * 60 * 60 * 1000,
+  });
+  if (!ipDaily.allowed) {
+    return { allowed: false, retryAfterSec: ipDaily.retryAfterSec, scope: "ip_daily" };
+  }
+
+  const ipMonthly = await consumeRateLimit(`ipmon:${monthKey()}:${input.ipKey}`, {
+    limit: IP_MONTHLY_MAX,
+    windowMs: 31 * 24 * 60 * 60 * 1000,
+  });
+  if (!ipMonthly.allowed) {
+    return { allowed: false, retryAfterSec: ipMonthly.retryAfterSec, scope: "ip_monthly" };
+  }
+
   const daily = await consumeRateLimit(`day:${dayKey()}:${input.visitorKey}`, dailyLimit);
   if (!daily.allowed) {
     return { allowed: false, retryAfterSec: daily.retryAfterSec, scope: "daily" };
@@ -145,7 +169,13 @@ export async function enforceChatRateLimits(input) {
   return {
     allowed: true,
     retryAfterSec: 0,
-    remaining: Math.min(visitor.remaining, ip.remaining, daily.remaining),
+    remaining: Math.min(
+      visitor.remaining,
+      ip.remaining,
+      ipDaily.remaining,
+      ipMonthly.remaining,
+      daily.remaining,
+    ),
     scope: "ok",
   };
 }
