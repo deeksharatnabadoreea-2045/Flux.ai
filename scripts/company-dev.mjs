@@ -334,13 +334,12 @@ async function handlePublicChat(req, res) {
     return;
   }
 
-  const session = ensureVisitorSession(req, { secureCookie: false });
   const visitorKey = signedIn
     ? `user:${identity.sub || identity.userId || "viewer"}`
-    : resolveAnonymousVisitorKey(req, session);
+    : resolveAnonymousVisitorKey(req);
 
   if (req.method !== "POST") {
-    writeChatJson(res, 405, { ok: false, error: "method_not_allowed" }, session.setCookie);
+    writeChatJson(res, 405, { ok: false, error: "method_not_allowed" }, null);
     return;
   }
 
@@ -355,11 +354,13 @@ async function handlePublicChat(req, res) {
         retryAfterSec: rate.retryAfterSec,
         scope: rate.scope,
       },
-      session.setCookie,
+      null,
       { "retry-after": String(rate.retryAfterSec) },
     );
     return;
   }
+
+  const session = ensureVisitorSession(req, { secureCookie: false });
 
   let raw = "";
   for await (const chunk of req) raw += chunk;
