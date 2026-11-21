@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-21-public-chat-security",
-  cacheBust: "public-chat-security-2",
+  stamp: "prod-2026-11-21-live-sync",
+  cacheBust: "live-sync-1",
 };
 
 test.describe("one Flux site — same content at 375, 768, and 1440", () => {
