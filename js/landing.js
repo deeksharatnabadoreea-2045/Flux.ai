@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=anon-hardening-release-1";
-import { initLandingChat } from "./landing-chat.js?v=anon-hardening-release-1";
+import { ACCESS } from "./access-config.js?v=restore-703b883-frontend-1";
+import { initLandingChat } from "./landing-chat.js?v=restore-703b883-frontend-1";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";
@@ -37,7 +37,7 @@ function setSidebarOpen(open) {
 }
 
 function isMobileSidebar() {
-  return false;
+  return window.matchMedia("(max-width: 900px)").matches;
 }
 
 function initSidebar() {
