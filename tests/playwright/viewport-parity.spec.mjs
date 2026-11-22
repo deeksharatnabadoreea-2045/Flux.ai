@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-22-restore-703b883-frontend",
-  cacheBust: "restore-703b883-frontend-1",
+  stamp: "prod-2026-11-22-pr83-desktop-mobile",
+  cacheBust: "pr83-desktop-mobile-1",
 };
 
 test.describe("one Flux site — same content at 375, 768, and 1440", () => {
@@ -39,16 +39,10 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
     await expect(page.locator(".hero-sub")).toContainText("human body and its molecules");
     await expect(page.locator("#composer-input")).toBeVisible();
     await expect(page.locator("#access-open")).toHaveText("Get access");
-
-    const isMobile = width <= 900;
-    const deployRelease = page.locator("#flux-deploy-release");
-    await expect(deployRelease).toBeAttached();
-    await expect(deployRelease).toHaveText(SHARED.stamp);
-    if (!isMobile) {
-      await expect(deployRelease).toBeVisible();
-      await expect(page.locator(".landing-footer .brand-mark")).toBeVisible();
-      await expect(page.locator(".landing-footer .brand-mark")).toHaveText("Flux");
-    }
+    await expect(page.locator("#flux-deploy-release")).toBeVisible();
+    await expect(page.locator("#flux-deploy-release")).toHaveText(SHARED.stamp);
+    await expect(page.locator(".landing-footer .brand-mark")).toBeVisible();
+    await expect(page.locator(".landing-footer .brand-mark")).toHaveText("Flux");
 
     const newChat = page.locator(".nav-item", { hasText: "New Chat" });
     const chats = page.locator("#chat-list-toggle");
@@ -59,17 +53,17 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
       fullPage: false,
     });
 
-    if (isMobile) {
-      await expect(sidebarToggle).toBeVisible();
-      await expect(newChat).not.toBeInViewport();
-      await expect(chats).not.toBeInViewport();
-    } else {
-      await expect(sidebarToggle).toBeHidden();
-      await expect(newChat).toBeVisible();
-      await expect(chats).toBeVisible();
-    }
+    await expect(sidebarToggle).toBeHidden();
+    await expect(newChat).toBeVisible();
+    await expect(chats).toBeVisible();
 
     await expect(page.locator(".brand").first()).toHaveText("Flux");
+
+    const shellMinWidth = await page.evaluate(() => {
+      const el = document.querySelector(".app-shell");
+      return el ? parseFloat(getComputedStyle(el).minWidth) : 0;
+    });
+    expect(shellMinWidth).toBeGreaterThanOrEqual(1024);
 
     const projectWidth = { mobile: 375, tablet: 768, desktop: 1440 }[testInfo.project.name];
     expect(width).toBe(projectWidth);
