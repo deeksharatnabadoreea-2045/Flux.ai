@@ -9,7 +9,6 @@ const SHARED = {
 test.describe("one Flux site — same content at 375, 768, and 1440", () => {
   test("loads the same build and keeps all sections", async ({ page }, testInfo) => {
     const width = page.viewportSize()?.width ?? 0;
-    const narrow = width <= 900;
 
     await page.goto("./index.html");
 
@@ -54,23 +53,17 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
       fullPage: false,
     });
 
-    if (narrow) {
-      await expect(sidebarToggle).toBeVisible();
-      await sidebarToggle.click();
-      await expect(page.locator("#sidebar")).toHaveClass(/is-open/);
-      await expect(newChat).toBeVisible();
-      await expect(chats).toBeVisible();
-      await page.screenshot({
-        path: `/opt/cursor/artifacts/layout-${width}-menu.png`,
-        fullPage: false,
-      });
-    } else {
-      await expect(sidebarToggle).toBeHidden();
-      await expect(newChat).toBeVisible();
-      await expect(chats).toBeVisible();
-    }
+    await expect(sidebarToggle).toBeHidden();
+    await expect(newChat).toBeVisible();
+    await expect(chats).toBeVisible();
 
     await expect(page.locator(".brand").first()).toHaveText("Flux");
+
+    const shellMinWidth = await page.evaluate(() => {
+      const el = document.querySelector(".app-shell");
+      return el ? parseFloat(getComputedStyle(el).minWidth) : 0;
+    });
+    expect(shellMinWidth).toBeGreaterThanOrEqual(1024);
 
     const projectWidth = { mobile: 375, tablet: 768, desktop: 1440 }[testInfo.project.name];
     expect(width).toBe(projectWidth);
