@@ -35,6 +35,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: auto;
 }
 
 .sr-only {
@@ -120,20 +121,21 @@ button {
   letter-spacing: 0.02em;
 }
 
+.mast-meta span {
+  display: block;
+}
+
 .mast-meta .deploy-release {
   margin-top: 0.35rem;
   font-size: 0.68rem;
-  color: var(--ink-soft);
-}
-
-.mast-meta span {
-  display: block;
+  color: var(--muted);
 }
 
 .floor {
   flex: 1;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) minmax(280px, 420px);
+  min-width: 960px;
   min-height: 0;
   border-top: 1px solid var(--rule);
 }
@@ -582,49 +584,6 @@ select {
 
 .log li + li {
   margin-top: 0.55rem;
-}
-
-/* —— Mobile / narrow: stack the floor —— */
-@media (max-width: 960px) {
-  html,
-  body {
-    height: auto;
-  }
-
-  .floor {
-    display: flex;
-    flex-direction: column;
-    flex: none;
-    height: auto;
-    min-height: 0;
-  }
-
-  .rail,
-  .work,
-  .file-pane {
-    overflow: visible;
-    min-height: 0;
-    max-height: none;
-  }
-
-  .board {
-    flex: none;
-    min-height: 0;
-  }
-
-  .rail,
-  .file-pane {
-    border: 0;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .mast {
-    grid-template-columns: 1fr;
-  }
-
-  .mast-meta {
-    text-align: left;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
