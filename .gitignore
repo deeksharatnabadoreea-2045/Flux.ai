@@ -9,3 +9,6 @@ playwright-report/
 blob-report/
 .playwright/
 
+
+# Local Playwright / manual test captures
+artifacts/
