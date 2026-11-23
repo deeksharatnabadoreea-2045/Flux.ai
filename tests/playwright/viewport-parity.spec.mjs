@@ -2,15 +2,15 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-22-pr83-desktop-mobile",
-  cacheBust: "pr83-desktop-mobile-1",
+  stamp: "prod-2026-11-23-unify-explorer-1",
+  cacheBust: "unify-explorer-1",
 };
 
-test.describe("one Flux site — same content at 375, 768, and 1440", () => {
-  test("loads the same build and keeps all sections", async ({ page }, testInfo) => {
+test.describe("chat surface — same content at 375, 768, and 1440", () => {
+  test("loads chat.html and keeps desktop-min layout", async ({ page }, testInfo) => {
     const width = page.viewportSize()?.width ?? 0;
 
-    await page.goto("./index.html");
+    await page.goto("./chat.html");
 
     await expect(page).toHaveTitle(SHARED.title);
     await expect(page.locator('meta[name="flux-deploy-stamp"]')).toHaveAttribute(
@@ -49,10 +49,11 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
     const sidebarToggle = page.locator("#sidebar-toggle");
 
     await page.screenshot({
-      path: `/opt/cursor/artifacts/layout-${width}.png`,
+      path: `artifacts/chat-viewport-${testInfo.project.name}.png`,
       fullPage: false,
     });
 
+    // PR #83: desktop shell on all widths — no mobile drawer toggle.
     await expect(sidebarToggle).toBeHidden();
     await expect(newChat).toBeVisible();
     await expect(chats).toBeVisible();
@@ -67,5 +68,16 @@ test.describe("one Flux site — same content at 375, 768, and 1440", () => {
 
     const projectWidth = { mobile: 375, tablet: 768, desktop: 1440 }[testInfo.project.name];
     expect(width).toBe(projectWidth);
+  });
+});
+
+test.describe("marketing home", () => {
+  test("loads unified homepage", async ({ page }) => {
+    await page.goto("./");
+    await expect(page).toHaveTitle(/biology meets intelligence/i);
+    await expect(page.locator(".brand-signal")).toHaveText("Flux.ai");
+    await expect(page.locator(".hero h1")).toContainText("biology meets intelligence");
+    await expect(page.locator('a.btn--primary[href="/explorer/molecules/"]')).toBeVisible();
+    await expect(page.locator('a.btn--ghost[href="/chat.html"]')).toBeVisible();
   });
 });

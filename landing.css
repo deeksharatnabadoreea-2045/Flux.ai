@@ -1,21 +1,22 @@
 :root {
-  --bg: #f4f3f0;
-  --surface: #ffffff;
-  --surface-muted: #f8f7f5;
-  --sidebar-bg: rgba(255, 255, 255, 0.72);
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.12);
-  --ink: #111111;
-  --ink-soft: #5c5c5c;
-  --ink-muted: #8a8a8a;
-  --accent-lavender: #e8e0f5;
-  --font-ui: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  /* Blue theme (aligned with marketing/explorer); #83 desktop-min layout retained. */
+  --bg: #111e2e;
+  --surface: #1d324a;
+  --surface-muted: #162636;
+  --sidebar-bg: rgba(17, 30, 46, 0.88);
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --ink: #f5f9ff;
+  --ink-soft: rgba(235, 244, 255, 0.78);
+  --ink-muted: rgba(235, 244, 255, 0.55);
+  --accent-lavender: rgba(126, 200, 255, 0.22);
+  --font-ui: "Outfit", "Segoe UI", system-ui, sans-serif;
   --font-display: "Instrument Serif", "Times New Roman", serif;
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
-  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.06);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 4px 24px rgba(3, 28, 58, 0.35);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2);
   --desktop-sidebar: 260px;
   --layout-min: 1024px;
   /* Optimal reading measure (~45–75ch); ~max-w-3xl on large screens */

@@ -5,7 +5,7 @@ test.describe("public Flux chat", () => {
   test("anonymous visitor opens site and chats without Cursor sign-in", async ({
     page,
   }, testInfo) => {
-    await page.goto("./index.html");
+    await page.goto("./chat.html");
     await expect(page.locator(".brand").first()).toContainText("Flux");
     await expect(page.locator("#composer-input")).toBeVisible();
 
@@ -57,7 +57,8 @@ test.describe("public Flux chat", () => {
       const headers = {
         origin: baseURL,
         "content-type": "application/json",
-        "x-forwarded-for": abuseIp,
+        // Cursor Apps trusts x-vercel-forwarded-for; plain XFF is ignored locally → 503.
+        "x-vercel-forwarded-for": abuseIp,
       };
       if (cookie) headers.cookie = cookie;
       const res = await request.post(`${baseURL}/api/chat`, {

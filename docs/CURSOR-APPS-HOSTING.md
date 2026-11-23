@@ -11,10 +11,13 @@ Production hosting for the Flux landing site and chat API. This is not a product
 | Framework | Static HTML + ES modules (no React/Next build) |
 | Build command | `npm run build` (applies SQL migrations when `DATABASE_URL` is set) |
 | Start (local) | `npm run dev` (API + static) or `npm start` (static only) |
+| Marketing home | `/` (`index.html`) — my-app-inspired blue theme + 3D hero |
+| Chat | `/chat.html` — science assistant (desktop-min layout on narrow viewports) |
+| Explorer | `/explorer/` + `/explorer/molecules/` — PubChem search/profile/3D |
 | Chat backend | Groq via `GROQ_API_KEY` (server-side only) |
-| Science data | PubChem + ChEBI/HMDB human-occurrence gate |
+| Science data | PubChem + ChEBI/HMDB human-occurrence gate (chat); explorer shows PubChem profiles |
 
-**One responsive build, all devices:** Desktop, tablet, and phone use the **same** HTML/CSS/JS from this repo. Layout adapts via CSS breakpoints (`landing.css` ≤900px drawer sidebar; `hq.css` ≤960px stacked floor). There is **no** separate mobile deploy or device-specific HTML.
+**One build, all devices:** Desktop, tablet, and phone use the **same** HTML/CSS/JS from this repo. Chat keeps the PR #83 desktop-min shell (`--layout-min: 1024px`). Marketing/explorer use responsive breakpoints. There is **no** separate mobile deploy.
 
 **Republish path:** After merges to `main`, owner **republishes** the existing Cursor App `flux-ai-3cdd` from the dashboard (not automatic on every `git push`). That single publish updates every device at once.
 
@@ -50,8 +53,9 @@ Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **n
 
 | Piece | Path |
 | --- | --- |
-| Static site | `index.html`, `landing.css`, `js/*`, `hq.html`, … |
+| Static site | `index.html`, `chat.html`, `site.css`, `landing.css`, `explorer/**`, `hq.html`, `js/*` |
 | Chat route | `api/chat.js` — public GET/POST with optional identity |
+| Molecule APIs | `api/molecules-search.js`, `molecules-profile.js`, `molecules-structure.js`, `molecules-featured.js` |
 | Rate store | `js/chat-rate-store.mjs` + `migrations/001_chat_rate_limits.sql` (Postgres via `cursor-app.json`) |
 | Anonymous identity | `js/chat-rate-identity.mjs` + `js/chat-security.mjs` (`CHAT_SESSION_SECRET` / `CHAT_ANON_RATE_SALT`) |
 | Shared logic | `js/science-chat.mjs` |
