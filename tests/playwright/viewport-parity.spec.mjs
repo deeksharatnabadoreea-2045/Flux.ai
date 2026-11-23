@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SHARED = {
   title: /Flux — human body/,
-  stamp: "prod-2026-11-23-unify-explorer-1",
-  cacheBust: "unify-explorer-1",
+  stamp: "prod-2026-11-23-chat-origin-mol-limits-1",
+  cacheBust: "chat-origin-mol-limits-1",
 };
 
 test.describe("chat surface — same content at 375, 768, and 1440", () => {

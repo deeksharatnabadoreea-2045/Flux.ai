@@ -98,21 +98,63 @@ export function clientKeyFromHeaders(headers) {
 }
 
 /**
+ * Canonical production chat origin for the Flux Cursor App (slug flux-ai-3cdd).
+ * Cursor Apps edge may rewrite Host to an internal value while the browser
+ * Origin stays on apps.grok.bot — allow this exact public origin without
+ * opening arbitrary third-party sites.
+ */
+export const CANONICAL_CHAT_ORIGINS = Object.freeze([
+  "https://flux-ai-3cdd.apps.grok.bot",
+]);
+
+/**
  * Extra origins allowed beyond same-host (comma-separated CHAT_ALLOWED_ORIGINS).
+ * Also honors optional CHAT_PUBLIC_ORIGIN (single public app URL).
  * @param {NodeJS.ProcessEnv} [env]
  */
 export function parseAllowedChatOrigins(env = process.env) {
+  const parts = [];
+  const publicOrigin = String(env.CHAT_PUBLIC_ORIGIN ?? "").trim();
+  if (publicOrigin) parts.push(publicOrigin);
   const raw = String(env.CHAT_ALLOWED_ORIGINS ?? "").trim();
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 32);
+  if (raw) {
+    for (const s of raw.split(",")) {
+      const t = s.trim();
+      if (t) parts.push(t);
+    }
+  }
+  return parts.slice(0, 32);
 }
 
 /**
- * Accept browser same-origin chat (Origin/Referer host matches Host) or an allowlisted origin.
+ * Hostnames the edge may present for this request (proxy-aware).
+ * Prefers x-forwarded-host (public) over Host (often rewritten internally).
+ * @param {(name: string) => string} get
+ * @returns {string[]}
+ */
+export function resolveRequestHostCandidates(get) {
+  /** @type {string[]} */
+  const out = [];
+  const push = (raw) => {
+    const value = String(raw ?? "").trim();
+    if (!value) return;
+    for (const part of value.split(",")) {
+      const host = part.trim().toLowerCase();
+      if (!host) continue;
+      if (!out.includes(host)) out.push(host);
+      const bare = host.split(":")[0];
+      if (bare && !out.includes(bare)) out.push(bare);
+    }
+  };
+  // Public hostname first — Cursor Apps / Vercel set this while Host is internal.
+  push(get("x-forwarded-host"));
+  push(get("host"));
+  return out;
+}
+
+/**
+ * Accept browser same-origin chat (Origin/Referer host matches request hosts)
+ * or an allowlisted / canonical production origin.
  * Rejects cross-site and raw scripted calls with no Origin/Referer — those are the abuse path.
  * @param {Record<string, string | undefined> | Headers | null | undefined} headers
  * @param {{ allowedOrigins?: string[], env?: NodeJS.ProcessEnv }} [opts]
@@ -131,10 +173,11 @@ export function assertChatBrowserOrigin(headers, opts = {}) {
     return "";
   };
 
-  const host = get("host") || get("x-forwarded-host");
+  const hostCandidates = resolveRequestHostCandidates(get);
   const origin = get("origin");
   const referer = get("referer");
   const allowed = new Set([
+    ...CANONICAL_CHAT_ORIGINS,
     ...(opts.allowedOrigins ?? []),
     ...parseAllowedChatOrigins(opts.env ?? process.env),
   ]);
@@ -142,9 +185,12 @@ export function assertChatBrowserOrigin(headers, opts = {}) {
   const hostMatches = (urlString) => {
     try {
       const u = new URL(urlString);
-      if (!host) return false;
-      // Host may include port; URL.host includes port when non-default.
-      return u.host === host || u.hostname === host.split(":")[0];
+      if (!hostCandidates.length) return false;
+      const originHost = u.host.toLowerCase();
+      const originHostname = u.hostname.toLowerCase();
+      return hostCandidates.some(
+        (h) => h === originHost || h === originHostname || h.split(":")[0] === originHostname,
+      );
     } catch {
       return false;
     }

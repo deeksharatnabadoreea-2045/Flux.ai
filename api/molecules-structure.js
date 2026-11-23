@@ -4,11 +4,18 @@
  */
 
 import {
+  cachedMoleculeFetch,
+  moleculeRateLimitResponse,
+} from "../js/molecules-api.mjs";
+import {
   getMoleculeStructureSdf,
   parseCid,
 } from "../js/molecules-pubchem.js";
 
 export async function GET(request) {
+  const limited = moleculeRateLimitResponse(request);
+  if (limited) return limited;
+
   const url = new URL(request.url);
   const cid = parseCid(url.searchParams.get("cid"));
   if (!cid) {
@@ -19,7 +26,9 @@ export async function GET(request) {
   }
 
   try {
-    const sdf = await getMoleculeStructureSdf(cid);
+    const sdf = await cachedMoleculeFetch(`sdf:${cid}`, 24 * 60 * 60_000, () =>
+      getMoleculeStructureSdf(cid),
+    );
     if (!sdf) {
       return Response.json(
         { error: "Structure unavailable" },

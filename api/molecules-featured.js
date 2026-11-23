@@ -3,11 +3,20 @@
  * Featured molecule list for explorer (PubChem live + curated names).
  */
 
+import {
+  cachedMoleculeFetch,
+  moleculeRateLimitResponse,
+} from "../js/molecules-api.mjs";
 import { getFeaturedMolecules } from "../js/molecules-pubchem.js";
 
-export async function GET() {
+export async function GET(request) {
+  const limited = moleculeRateLimitResponse(request);
+  if (limited) return limited;
+
   try {
-    const results = await getFeaturedMolecules();
+    const results = await cachedMoleculeFetch("featured", 10 * 60_000, () =>
+      getFeaturedMolecules(),
+    );
     return Response.json(
       { results },
       { headers: { "cache-control": "public, max-age=600" } },
