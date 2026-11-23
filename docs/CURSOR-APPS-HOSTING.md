@@ -60,7 +60,8 @@ Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **n
 | Anonymous identity | `js/chat-rate-identity.mjs` + `js/chat-security.mjs` (`CHAT_SESSION_SECRET` / `CHAT_ANON_RATE_SALT`) |
 | Shared logic | `js/science-chat.mjs` |
 | Secret | Bind **`GROQ_API_KEY`**; **`CHAT_SESSION_SECRET`** (or `CHAT_ANON_RATE_SALT`) for production anonymous rate buckets |
-| Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` |
+| Optional | `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`); `CHAT_ALLOWED_ORIGINS` / `CHAT_PUBLIC_ORIGIN` |
+| Molecule APIs | `api/molecules-*.js` — public GETs with per-IP rate limit (60 / 5 min) + short TTL cache |
 
 The browser only calls same-origin `POST /api/chat` with `credentials: "same-origin"`. It never receives the key.
 

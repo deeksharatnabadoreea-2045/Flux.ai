@@ -1,5 +1,5 @@
-import { ACCESS } from "./access-config.js?v=unify-explorer-1";
-import { initLandingChat } from "./landing-chat.js?v=unify-explorer-1";
+import { ACCESS } from "./access-config.js?v=chat-origin-mol-limits-1";
+import { initLandingChat } from "./landing-chat.js?v=chat-origin-mol-limits-1";
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning.";

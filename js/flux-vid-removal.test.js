@@ -180,8 +180,8 @@ test("8 — chat-rate-identity is reachable from api/chat without chat-visitor o
 test("9 — deploy-revision keeps security base SHA (b8ce66e)", async () => {
   const mod = await import("./deploy-revision.js");
   assert.equal(mod.DEPLOY_BASED_ON_MAIN_SHORT, "b8ce66e");
-  assert.equal(mod.STATIC_CACHE_BUST, "unify-explorer-1");
-  assert.match(mod.DEPLOY_STAMP, /unify-explorer/);
+  assert.equal(mod.STATIC_CACHE_BUST, "chat-origin-mol-limits-1");
+  assert.match(mod.DEPLOY_STAMP, /chat-origin-mol-limits/);
 });
 
 test("10 — production graph modules: chat-rate-store → chat-security → chat-rate-identity", async () => {

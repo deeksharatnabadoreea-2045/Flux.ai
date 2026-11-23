@@ -82,6 +82,34 @@ test("assertChatBrowserOrigin honors CHAT_ALLOWED_ORIGINS", () => {
   assert.deepEqual(parseAllowedChatOrigins({ CHAT_ALLOWED_ORIGINS: "a, b" }), ["a", "b"]);
 });
 
+test("assertChatBrowserOrigin allows canonical flux-ai-3cdd origin when Host is rewritten", () => {
+  const ok = assertChatBrowserOrigin({
+    host: "flux-ai-3cdd-git-main.vercel.app",
+    origin: "https://flux-ai-3cdd.apps.grok.bot",
+  });
+  assert.equal(ok.ok, true);
+});
+
+test("assertChatBrowserOrigin prefers x-forwarded-host over rewritten Host", () => {
+  const ok = assertChatBrowserOrigin({
+    host: "internal.edge.local",
+    "x-forwarded-host": "flux-ai-3cdd.apps.grok.bot",
+    origin: "https://flux-ai-3cdd.apps.grok.bot",
+  });
+  assert.equal(ok.ok, true);
+});
+
+test("assertChatBrowserOrigin still rejects unrelated third-party origins", () => {
+  assert.equal(
+    assertChatBrowserOrigin({
+      host: "internal.edge.local",
+      "x-forwarded-host": "flux-ai-3cdd.apps.grok.bot",
+      origin: "https://evil.example",
+    }).error,
+    "origin_forbidden",
+  );
+});
+
 test("anonymous same-IP requests share one visitor rate bucket (IP-only identity)", async () => {
   resetRateStoreMemory();
   await resetLocalDatabase();

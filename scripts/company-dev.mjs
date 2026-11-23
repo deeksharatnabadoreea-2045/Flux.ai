@@ -27,6 +27,11 @@ import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
 import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-rate-identity.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
 import {
+  cachedMoleculeFetch,
+  enforceMoleculeRateLimit,
+  MOLECULE_MAX_QUERY_CHARS,
+} from "../js/molecules-api.mjs";
+import {
   getFeaturedMolecules,
   getMoleculeProfile,
   getMoleculeStructureSdf,
@@ -412,7 +417,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // Public molecule explorer APIs (PubChem proxy — no secrets).
+  // Public molecule explorer APIs (PubChem proxy — no secrets; rate-limited).
+  if (
+    req.method === "GET" &&
+    (url.pathname === "/api/molecules-search" ||
+      url.pathname === "/api/molecules-featured" ||
+      url.pathname === "/api/molecules-profile" ||
+      url.pathname === "/api/molecules-structure")
+  ) {
+    const molRate = enforceMoleculeRateLimit(req);
+    if (!molRate.allowed) {
+      res.writeHead(
+        429,
+        jsonHeaders({ "retry-after": String(molRate.retryAfterSec) }),
+      );
+      res.end(
+        JSON.stringify({
+          error: "rate_limited",
+          retryAfterSec: molRate.retryAfterSec,
+          results: [],
+        }),
+      );
+      return;
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/api/molecules-search") {
     const q = url.searchParams.get("q")?.trim() ?? "";
     if (!q) {
@@ -420,13 +449,17 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ results: [] }));
       return;
     }
-    if (q.length > 120) {
+    if (q.length > MOLECULE_MAX_QUERY_CHARS) {
       res.writeHead(400, jsonHeaders());
       res.end(JSON.stringify({ error: "Query too long", results: [] }));
       return;
     }
     try {
-      const results = await searchMolecules(q, 16);
+      const results = await cachedMoleculeFetch(
+        `search:${q.toLowerCase()}`,
+        5 * 60_000,
+        () => searchMolecules(q, 16),
+      );
       res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=300" }));
       res.end(JSON.stringify({ results }));
     } catch {
@@ -438,7 +471,9 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/api/molecules-featured") {
     try {
-      const results = await getFeaturedMolecules();
+      const results = await cachedMoleculeFetch("featured", 10 * 60_000, () =>
+        getFeaturedMolecules(),
+      );
       res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=600" }));
       res.end(JSON.stringify({ results }));
     } catch {
@@ -456,7 +491,9 @@ const server = createServer(async (req, res) => {
       return;
     }
     try {
-      const profile = await getMoleculeProfile(cid);
+      const profile = await cachedMoleculeFetch(`profile:${cid}`, 10 * 60_000, () =>
+        getMoleculeProfile(cid),
+      );
       if (!profile) {
         res.writeHead(404, jsonHeaders());
         res.end(JSON.stringify({ error: "Molecule not found" }));
@@ -479,7 +516,9 @@ const server = createServer(async (req, res) => {
       return;
     }
     try {
-      const sdf = await getMoleculeStructureSdf(cid);
+      const sdf = await cachedMoleculeFetch(`sdf:${cid}`, 24 * 60 * 60_000, () =>
+        getMoleculeStructureSdf(cid),
+      );
       if (!sdf) {
         res.writeHead(404, jsonHeaders());
         res.end(JSON.stringify({ error: "Structure unavailable" }));
