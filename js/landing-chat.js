@@ -1,6 +1,6 @@
 /** Landing conversational chat UI — calls /api/chat (Groq on the server). */
 
-import { setMoleculePanel } from "./landing-pubchem.js?v=pr83-desktop-mobile-1";
+import { setMoleculePanel } from "./landing-pubchem.js?v=unify-explorer-1";
 
 const STORAGE_KEY = "flux.scienceChats.v1";
 const MAX_CHATS = 20;
@@ -13,7 +13,7 @@ function els() {
     thread: document.getElementById("chat-thread"),
     hero: document.querySelector(".hero"),
     history: document.getElementById("chat-history"),
-    newChat: document.querySelector('.nav-item[href="./index.html"]'),
+    newChat: document.querySelector('.nav-item[href="./chat.html"]'),
   };
 }
 
@@ -257,6 +257,13 @@ export function initLandingChat() {
   saveStore(store);
   renderSidebar(store);
   if (chat) renderThread(chat);
+
+  // Prefill from explorer "Ask Flux" links: /chat.html?q=...
+  const prefill = new URLSearchParams(window.location.search).get("q");
+  if (prefill && !input.value) {
+    input.value = prefill;
+    input.focus();
+  }
 
   form.addEventListener("submit", handleSubmit);
   input.addEventListener("keydown", (e) => {

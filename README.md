@@ -54,7 +54,7 @@ npm run dev        # HQ + 24/7 agent pool (recommended)
 npm start          # static HQ only — no live pool
 ```
 
-Open http://127.0.0.1:4173 for the landing conversational assistant (Groq on the server via `GROQ_API_KEY`; PubChem molecule facts + ChEBI/HMDB gate), or http://127.0.0.1:4173/hq.html for the company floor.
+Open http://127.0.0.1:4173 for the marketing home (3D PubChem hero + explorer), http://127.0.0.1:4173/chat.html for the conversational assistant (Groq via `GROQ_API_KEY`; PubChem + ChEBI/HMDB gate), http://127.0.0.1:4173/explorer/molecules/ for molecular search, or http://127.0.0.1:4173/hq.html for the company floor.
 
 **Design reference / recommended production:** [https://flux-ai-3cdd.apps.grok.bot](https://flux-ai-3cdd.apps.grok.bot) (Cursor Apps, slug `flux-ai-3cdd`). A second publish also exists at [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) — consolidate to **one** slug (owner pick). GitHub is source only — do not treat GitHub Pages (`*.github.io`) or `https://flux-ai-bio.netlify.app` as production. One responsive URL for desktop and mobile (no separate mobile host).
 

@@ -14,8 +14,8 @@ function readPage(name) {
   return readFileSync(join(root, name), "utf8");
 }
 
-test("index.html deploy meta, body sha, and cache bust match deploy-revision.js", () => {
-  const html = readPage("index.html");
+test("chat.html deploy meta, body sha, and cache bust match deploy-revision.js", () => {
+  const html = readPage("chat.html");
   assert.match(
     html,
     new RegExp(
@@ -36,6 +36,16 @@ test("index.html deploy meta, body sha, and cache bust match deploy-revision.js"
     new RegExp(`landing\\.js\\?v=${STATIC_CACHE_BUST}`),
   );
   assert.match(html, new RegExp(`id="flux-deploy-release"`));
+});
+
+test("index.html (marketing home) deploy stamp and site.css cache bust", () => {
+  const html = readPage("index.html");
+  assert.match(
+    html,
+    new RegExp(`<meta name="flux-deploy-stamp" content="${DEPLOY_STAMP}">`),
+  );
+  assert.match(html, new RegExp(`site\\.css\\?v=${STATIC_CACHE_BUST}`));
+  assert.match(html, /Where biology meets intelligence/);
 });
 
 test("hq.html viewport and cache bust match deploy-revision.js", () => {

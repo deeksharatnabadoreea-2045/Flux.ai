@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#111e2e">
+    <meta name="description" content="Flux — ask about the human body and its molecules. Plain-English answers with PubChem lookups when needed.">
+    <meta name="flux-deploy-sha" content="b8ce66e1ca1c8893e13dc3f33cb31523c0b33829">
+    <meta name="flux-deploy-stamp" content="prod-2026-11-23-unify-explorer-1">
+    <title>Flux — human body &amp; molecules</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./landing.css?v=unify-explorer-1">
+</head>
+<body data-flux-deploy="b8ce66e1ca1c8893e13dc3f33cb31523c0b33829">
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <div class="app">
+        <div class="app-shell">
+            <button type="button" class="sidebar-scrim" id="sidebar-scrim" aria-label="Close menu" tabindex="-1"></button>
+            <aside class="sidebar" id="sidebar" aria-label="Menu">
+                <div class="sidebar-head">
+                    <p class="brand">Flux</p>
+                    <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <nav class="nav">
+                    <a class="nav-item" href="./chat.html">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        New Chat
+                    </a>
+                    <a class="nav-item" href="./">Home</a>
+                    <a class="nav-item" href="./explorer/molecules/">Explorer</a>
+                    <a class="nav-item" href="./hq.html">HQ</a>
+                </nav>
+
+                <button type="button" class="chat-list-header" id="chat-list-toggle" aria-expanded="true" aria-controls="chat-history" aria-label="Toggle chat list">
+                    <span>Chats</span>
+                    <svg class="chat-list-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="chat-history" id="chat-history">
+                    <p class="chat-empty">No chats yet</p>
+                </div>
+            </aside>
+
+            <main class="main" id="main">
+                <header class="main-header">
+                    <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <p class="main-header-brand">Flux</p>
+                    <button type="button" class="access-open" id="access-open">Get access</button>
+                </header>
+
+                <div class="main-scroll">
+                <section class="hero">
+                    <div class="sphere-logo" role="img" aria-label="Flux"></div>
+                    <h1 class="hero-title" id="hero-greeting">Good Afternoon.</h1>
+                    <p class="hero-sub">Ask about the human body and its molecules. I explain in plain English and look up PubChem when needed.</p>
+                </section>
+                <div class="chat-thread is-empty" id="chat-thread" aria-live="polite"></div>
+                </div>
+
+                <div class="composer-wrap">
+                    <form class="composer" id="composer-form">
+                        <div class="composer-field">
+                            <svg class="composer-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M5 3v2M19 19v2M3 5h2M19 19h2"/></svg>
+                            <label class="sr-only" for="composer-input">Message</label>
+                            <textarea class="composer-input" id="composer-input" name="message" rows="2" placeholder="Ask anything — e.g. What is glucose? Why does my body need it?"></textarea>
+                        </div>
+                        <div class="composer-bottom">
+                            <div class="composer-tools"></div>
+                            <button type="submit" class="send-btn" id="composer-submit" aria-label="Send">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                            </button>
+                        </div>
+                    </form>
+                    <section class="molecule-result is-hidden" id="molecule-result" aria-live="polite" aria-atomic="true">
+                        <p class="molecule-result-status is-hidden" id="molecule-result-status"></p>
+                        <p class="molecule-result-name is-hidden" id="molecule-result-name"></p>
+                        <dl class="molecule-result-props is-hidden" id="molecule-result-props">
+                            <div>
+                                <dt>Molecular Formula</dt>
+                                <dd id="molecule-result-formula"></dd>
+                            </div>
+                            <div>
+                                <dt>Molecular Weight</dt>
+                                <dd id="molecule-result-weight"></dd>
+                            </div>
+                            <div>
+                                <dt>Human evidence</dt>
+                                <dd id="molecule-result-evidence"></dd>
+                            </div>
+                        </dl>
+                        <p class="molecule-result-error is-hidden" id="molecule-result-error"></p>
+                    </section>
+                </div>
+
+                <footer class="landing-footer">
+                    <span class="deploy-release" id="flux-deploy-release" aria-label="Release ID"></span>
+                    <span class="brand-mark">Flux</span>
+                </footer>
+            </main>
+        </div>
+    </div>
+
+    <dialog class="access-dialog" id="access-dialog" aria-labelledby="access-title">
+        <form method="dialog" class="access-panel">
+            <h2 id="access-title">Get access</h2>
+            <p class="access-offer">Full chat access to Flux.</p>
+            <p class="access-price" id="access-price">$29 per month</p>
+            <a class="access-pay" id="access-pay" href="#">Pay</a>
+            <button type="submit" class="access-close" value="cancel">Close</button>
+        </form>
+    </dialog>
+    <style>
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+    </style>
+    <script type="module" src="./js/landing.js?v=unify-explorer-1"></script>
+</body>
+</html>

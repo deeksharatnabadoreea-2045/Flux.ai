@@ -25,6 +25,8 @@ export default defineConfig({
       // Force anonymous local identity path for public-chat Playwright coverage.
       CURSOR_APP_ID: "playwright_public_chat",
       CHAT_SESSION_SECRET: "playwright-session-secret",
+      // Durable rate store required when CURSOR_APP_ID is set (fail-closed otherwise).
+      DATABASE_URL: "pglite://playwright-flux",
       // Leave GROQ_API_KEY unset unless the environment already provides it —
       // PubChem fallback still returns a real science reply for molecule asks.
     },

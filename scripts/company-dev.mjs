@@ -26,6 +26,13 @@ import { enforceChatRateLimits } from "../js/chat-rate-store.mjs";
 import { preflightAnonymousChatPost } from "../js/chat-security.mjs";
 import { resolveAnonymousVisitorKey, trustedClientKey } from "../js/chat-rate-identity.mjs";
 import { chatHealth, handleScienceChat } from "../js/science-chat.mjs";
+import {
+  getFeaturedMolecules,
+  getMoleculeProfile,
+  getMoleculeStructureSdf,
+  parseCid,
+  searchMolecules,
+} from "../js/molecules-pubchem.js";
 
 const ROOT = resolve(join(fileURLToPath(new URL(".", import.meta.url)), ".."));
 const HQ_PORT = Number(process.env.FLUX_HQ_PORT ?? 4173);
@@ -36,6 +43,7 @@ const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".json": "application/json",
   ".webp": "image/webp",
@@ -401,6 +409,91 @@ const server = createServer(async (req, res) => {
   // Public chat — no Cursor sign-in required (same-origin + rate limits).
   if (url.pathname === "/api/chat") {
     await handlePublicChat(req, res);
+    return;
+  }
+
+  // Public molecule explorer APIs (PubChem proxy — no secrets).
+  if (req.method === "GET" && url.pathname === "/api/molecules-search") {
+    const q = url.searchParams.get("q")?.trim() ?? "";
+    if (!q) {
+      res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=300" }));
+      res.end(JSON.stringify({ results: [] }));
+      return;
+    }
+    if (q.length > 120) {
+      res.writeHead(400, jsonHeaders());
+      res.end(JSON.stringify({ error: "Query too long", results: [] }));
+      return;
+    }
+    try {
+      const results = await searchMolecules(q, 16);
+      res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=300" }));
+      res.end(JSON.stringify({ results }));
+    } catch {
+      res.writeHead(502, jsonHeaders());
+      res.end(JSON.stringify({ error: "Search failed", results: [] }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/molecules-featured") {
+    try {
+      const results = await getFeaturedMolecules();
+      res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=600" }));
+      res.end(JSON.stringify({ results }));
+    } catch {
+      res.writeHead(502, jsonHeaders());
+      res.end(JSON.stringify({ error: "Featured fetch failed", results: [] }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/molecules-profile") {
+    const cid = parseCid(url.searchParams.get("cid"));
+    if (!cid) {
+      res.writeHead(400, jsonHeaders());
+      res.end(JSON.stringify({ error: "Invalid CID" }));
+      return;
+    }
+    try {
+      const profile = await getMoleculeProfile(cid);
+      if (!profile) {
+        res.writeHead(404, jsonHeaders());
+        res.end(JSON.stringify({ error: "Molecule not found" }));
+        return;
+      }
+      res.writeHead(200, jsonHeaders({ "cache-control": "public, max-age=600" }));
+      res.end(JSON.stringify({ profile }));
+    } catch {
+      res.writeHead(502, jsonHeaders());
+      res.end(JSON.stringify({ error: "Profile fetch failed" }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/molecules-structure") {
+    const cid = parseCid(url.searchParams.get("cid"));
+    if (!cid) {
+      res.writeHead(400, jsonHeaders());
+      res.end(JSON.stringify({ error: "Invalid CID" }));
+      return;
+    }
+    try {
+      const sdf = await getMoleculeStructureSdf(cid);
+      if (!sdf) {
+        res.writeHead(404, jsonHeaders());
+        res.end(JSON.stringify({ error: "Structure unavailable" }));
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": "chemical/x-mdl-sdfile; charset=utf-8",
+        "cache-control": "public, max-age=86400",
+      });
+      res.end(sdf);
+    } catch {
+      res.writeHead(502, jsonHeaders());
+      res.end(JSON.stringify({ error: "Structure fetch failed" }));
+    }
     return;
   }
 
