@@ -56,9 +56,9 @@ npm start          # static HQ only — no live pool
 
 Open http://127.0.0.1:4173 for the marketing home (3D PubChem hero + explorer), http://127.0.0.1:4173/chat.html for the conversational assistant (Groq via `GROQ_API_KEY`; PubChem + ChEBI/HMDB gate), http://127.0.0.1:4173/explorer/molecules/ for molecular search, or http://127.0.0.1:4173/hq.html for the company floor.
 
-**Design reference / recommended production:** [https://flux-ai-3cdd.apps.grok.bot](https://flux-ai-3cdd.apps.grok.bot) (Cursor Apps, slug `flux-ai-3cdd`). A second publish also exists at [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) — consolidate to **one** slug (owner pick). GitHub is source only — do not treat GitHub Pages (`*.github.io`) or `https://flux-ai-bio.netlify.app` as production. One responsive URL for desktop and mobile (no separate mobile host).
+**Production:** [https://flux-ai-3cdd.apps.grok.bot](https://flux-ai-3cdd.apps.grok.bot) (Cursor Apps, slug `flux-ai-3cdd`). A second publish also exists at [https://flux-ai.apps.grok.bot](https://flux-ai.apps.grok.bot) — consolidate to **one** slug (owner pick). GitHub is source only — do not treat GitHub Pages (`*.github.io`) as production. One responsive URL for desktop and mobile (no separate mobile host).
 
-**Chat API:** `POST /api/chat` — Cursor Apps route `api/chat.js` (signed-in viewer + rate limit) and local `npm run dev`. The browser never sees `GROQ_API_KEY`. Legacy Netlify function code remains for tests only — see [`docs/CURSOR-APPS-HOSTING.md`](docs/CURSOR-APPS-HOSTING.md).
+**Chat API:** `POST /api/chat` — Cursor Apps route `api/chat.js` (signed-in viewer + rate limit) and local `npm run dev`. The browser never sees `GROQ_API_KEY`. See [`docs/CURSOR-APPS-HOSTING.md`](docs/CURSOR-APPS-HOSTING.md).
 
 **Cursor Apps hosting:** this site is published on Cursor Apps. Bind secret `GROQ_API_KEY` in Cursor’s secure secrets / Apps dashboard. Optional non-secret: `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`; falls back if a model id is retired).
 

@@ -93,7 +93,7 @@ export function trustedClientKey(request, opts = {}) {
   const nf = get("x-nf-client-connection-ip");
   if (nf) return `ip:${nf.slice(0, 128)}`;
 
-  const onPlatform = Boolean(String(env.CURSOR_APP_ID ?? "").trim() || env.NETLIFY || env.VERCEL);
+  const onPlatform = Boolean(String(env.CURSOR_APP_ID ?? "").trim() || env.VERCEL);
 
   if (onPlatform) {
     const vercel = get("x-vercel-forwarded-for");
