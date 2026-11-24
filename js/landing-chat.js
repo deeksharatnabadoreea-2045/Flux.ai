@@ -134,31 +134,15 @@ function friendlyChatError(status, data) {
 }
 
 async function postChat(payload) {
-  const endpoints = ["/api/chat", "/.netlify/functions/chat"];
-  let lastError = null;
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok) return data;
-      if (res.status === 404) {
-        lastError = new Error("chat_endpoint_missing");
-        continue;
-      }
-      throw new Error(friendlyChatError(res.status, data));
-    } catch (err) {
-      lastError = err;
-      if (err instanceof TypeError) continue;
-      if (String(err?.message) === "chat_endpoint_missing") continue;
-      throw err;
-    }
-  }
-  throw lastError ?? new Error("Chat endpoint unavailable.");
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data?.ok) return data;
+  throw new Error(friendlyChatError(res.status, data));
 }
 
 function titleFromMessage(text) {

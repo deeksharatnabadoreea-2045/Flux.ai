@@ -1,6 +1,6 @@
 /**
  * Server-side chat guards: rate limits, payload validation, same-origin checks.
- * Used by Cursor Apps (`api/chat.js`), local HQ, and the legacy Netlify function (tests only).
+ * Used by Cursor Apps (`api/chat.js`) and local HQ.
  */
 
 const WINDOW_MS = 5 * 60 * 1000;
@@ -65,7 +65,7 @@ export function safeChatProviderError(err) {
 }
 
 /**
- * Client key for anonymous rate limiting (Netlify / edge).
+ * Client key for anonymous rate limiting (edge / platform headers).
  * Prefers platform IP headers; never trusts user-controlled body fields.
  * @param {Record<string, string | undefined> | Headers | null | undefined} headers
  */

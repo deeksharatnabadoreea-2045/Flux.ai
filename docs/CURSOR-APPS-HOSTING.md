@@ -21,7 +21,7 @@ Production hosting for the Flux landing site and chat API. This is not a product
 
 **Republish path:** After merges to `main`, owner **republishes** the existing Cursor App `flux-ai-3cdd` from the dashboard (not automatic on every `git push`). That single publish updates every device at once.
 
-**Not production** (do not bookmark, SEO, or agent-default these): `flux-ai.apps.grok.bot` (second Cursor slug), `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` (GitHub Pages), `https://flux-ai-bio.netlify.app` (legacy Netlify). They can serve stale or divergent copies.
+**Not production** (do not bookmark, SEO, or agent-default these): `flux-ai.apps.grok.bot` (second Cursor slug), `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` (GitHub Pages). They can serve stale or divergent copies.
 
 ## Public chat (required for ordinary visitors)
 
@@ -43,11 +43,10 @@ The GitHub repository is the **source of truth for code**, not a second producti
 | `https://flux-ai-3cdd.apps.grok.bot` | **Production** (Cursor Apps) |
 | `https://flux-ai.apps.grok.bot` | Obsolete second slug — **not production** |
 | `https://deeksharatnabadoreea-2045.github.io/Flux.ai/` | GitHub Pages mirror — **not production** |
-| `https://flux-ai-bio.netlify.app` | Legacy Netlify — **not production** |
 
 **Deploy verification:** `index.html` and `hq.html` carry matching `flux-deploy-sha` / `flux-deploy-stamp` meta tags; the landing footer and HQ mast show the same **release ID** on every viewport. Static assets use `?v=<STATIC_CACHE_BUST>` from `js/deploy-revision.js`. `GET /api/chat` returns `deployStamp` / `publicChat: true`.
 
-Do **not** point agents, SEO, or live inspect at GitHub Pages or Netlify. Do **not** disable Pages or change Netlify settings without Deeksharatna’s approval. Visibility must be **Public** for anonymous chat; that change is owner-controlled in Publish Settings.
+Do **not** point agents, SEO, or live inspect at GitHub Pages. Do **not** disable Pages without Deeksharatna’s approval. Visibility must be **Public** for anonymous chat; that change is owner-controlled in Publish Settings.
 
 ## Cursor Apps (current)
 
@@ -78,6 +77,6 @@ Cursor Apps does **not** auto-publish on every `git push`. Product path: cloud a
 
 This repo has **no** custom `.github/workflows` deploy. GitHub’s built-in `pages-build-deployment` may refresh the github.io mirror when Pages is enabled; that mirror is not production.
 
-## Legacy Netlify (not production)
+## Hosting note
 
-`netlify.toml` and `netlify/functions/chat.mjs` remain in-repo for historical compatibility and unit tests (`js/netlify-chat.test.js`). They are **not** the current production host. Do not deploy Flux to Netlify for live traffic. Do not recommend Netlify as the hosting path.
+Production is **only** Cursor Apps (`flux-ai-3cdd`). Do not add a second public host for Flux.

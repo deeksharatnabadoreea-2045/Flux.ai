@@ -1,6 +1,6 @@
 # Flux.ai desk agents (24/7 root)
 
-Flux runs on **always-on** Agent SDK workers. HQ is the orchestrator UI; these folders are the production runtime. Design reference / recommended live site: [https://flux-ai-3cdd.apps.grok.bot](https://flux-ai-3cdd.apps.grok.bot) (also see second publish `flux-ai.apps.grok.bot` — consolidate to one slug; GitHub Pages / Netlify are not production). See [HOSTING.md](./HOSTING.md) for deploy and patrol schedules.
+Flux runs on **always-on** Agent SDK workers. HQ is the orchestrator UI; these folders are the production runtime. Live site: [https://flux-ai-3cdd.apps.grok.bot](https://flux-ai-3cdd.apps.grok.bot) (also see second publish `flux-ai.apps.grok.bot` — consolidate to one slug; GitHub Pages is not production). See [HOSTING.md](./HOSTING.md) for deploy and patrol schedules.
 
 Each desk has an **Agent SDK** project with:
 

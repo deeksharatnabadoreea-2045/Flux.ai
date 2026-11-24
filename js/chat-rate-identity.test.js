@@ -52,7 +52,7 @@ test("stableAnonymousVisitorId is stable per trusted IP (UA ignored)", () => {
   );
 });
 
-test("trustedClientKey uses Netlify IP and ignores untrusted local XFF", () => {
+test("trustedClientKey uses platform IP header and ignores untrusted local XFF", () => {
   assert.equal(
     trustedClientKey({ headers: { "x-nf-client-connection-ip": "203.0.113.9" } }),
     "ip:203.0.113.9",

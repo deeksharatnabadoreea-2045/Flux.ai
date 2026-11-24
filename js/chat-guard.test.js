@@ -39,7 +39,7 @@ test("safeChatProviderError hides Groq/API details", () => {
   );
 });
 
-test("clientKeyFromHeaders prefers Netlify then forwarded IP", () => {
+test("clientKeyFromHeaders prefers platform IP then forwarded IP", () => {
   assert.equal(
     clientKeyFromHeaders({ "x-nf-client-connection-ip": "203.0.113.9" }),
     "ip:203.0.113.9",
@@ -53,8 +53,8 @@ test("clientKeyFromHeaders prefers Netlify then forwarded IP", () => {
 
 test("assertChatBrowserOrigin allows same-host Origin", () => {
   const ok = assertChatBrowserOrigin({
-    host: "flux-ai-bio.netlify.app",
-    origin: "https://flux-ai-bio.netlify.app",
+    host: "flux-ai-3cdd.apps.grok.bot",
+    origin: "https://flux-ai-3cdd.apps.grok.bot",
   });
   assert.equal(ok.ok, true);
 });
@@ -62,13 +62,13 @@ test("assertChatBrowserOrigin allows same-host Origin", () => {
 test("assertChatBrowserOrigin rejects cross-site and missing Origin", () => {
   assert.equal(
     assertChatBrowserOrigin({
-      host: "flux-ai-bio.netlify.app",
+      host: "flux-ai-3cdd.apps.grok.bot",
       origin: "https://evil.example",
     }).error,
     "origin_forbidden",
   );
   assert.equal(
-    assertChatBrowserOrigin({ host: "flux-ai-bio.netlify.app" }).error,
+    assertChatBrowserOrigin({ host: "flux-ai-3cdd.apps.grok.bot" }).error,
     "origin_required",
   );
 });
